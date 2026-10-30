@@ -1,0 +1,11 @@
+# Entorno virtual y archivos generados
+entv/
+__pycache__/
+*.pyc
+
+# Base de datos local (se recrea con migrate y cargar_datos)
+db.sqlite3
+
+# Configuración local y del editor
+.env
+.vscode/

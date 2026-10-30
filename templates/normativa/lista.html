@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block titulo %}Leyes en {{ comuna.nombre }}{% endblock %}
+{% block contenido %}
+<div class="tema-{{ comuna.slug }}">
+  <h1>Leyes y normativas: {{ comuna.nombre }}</h1>
+  {% if tipos %}
+  <form class="filtros" method="get">
+    <label for="tipo">Tipo de norma</label>
+    <select id="tipo" name="tipo">
+      <option value="">Todas</option>
+      {% for t in tipos %}<option value="{{ t }}" {% if t == tipo %}selected{% endif %}>{{ t }}</option>{% endfor %}
+    </select>
+    <button type="submit">Filtrar</button>
+  </form>
+  {% endif %}
+  <ul class="lista">
+    {% for n in pagina %}
+    <li>
+      <a href="{{ n.enlace_fuente }}" target="_blank" rel="noopener">{{ n.nombre }}</a>
+      <span class="meta">{{ n.tipo_norma }}{% if n.fecha_publicacion %}, publicada el {{ n.fecha_publicacion|date:"d/m/Y" }}{% endif %}</span>
+    </li>
+    {% empty %}
+    <li class="aviso">No hay leyes ni normativas cargadas para esta comuna.</li>
+    {% endfor %}
+  </ul>
+ 
+  {% include "paginacion.html" %}
+ 
+  <p>
+    <a class="boton secundario" href="{% url 'comunas:detalle' comuna.slug %}">Volver</a>
+    <a class="boton secundario" href="{% url 'core:inicio' %}">Inicio</a>
+  </p>
+</div>
+{% endblock %}
+ 

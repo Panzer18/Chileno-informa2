@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block titulo %}Buscar{% endblock %}
+{% block contenido %}
+<h1>Buscar en el sitio</h1>
+<p>Busca por nombre de comuna, tipo de ley o una palabra del título de una noticia (por ejemplo: <em>Petorca</em>, <em>agua</em>, <em>decreto</em>). El buscador revisa los títulos, tipos y fuentes registrados en este sitio; no entiende temas ni sinónimos.</p>
+ 
+<form class="filtros" action="{% url 'core:buscar' %}" method="get" role="search">
+  <label for="q">Palabra</label>
+  <input id="q" name="q" type="search" value="{{ q }}" placeholder="Ej.: Petorca, agua">
+  <label for="en">Buscar en</label>
+  <select id="en" name="en">
+    <option value="todo" {% if en == "todo" %}selected{% endif %}>Todo</option>
+    <option value="comunas" {% if en == "comunas" %}selected{% endif %}>Comunas</option>
+    <option value="leyes" {% if en == "leyes" %}selected{% endif %}>Leyes y normativas</option>
+    <option value="noticias" {% if en == "noticias" %}selected{% endif %}>Noticias</option>
+  </select>
+  <label for="comuna">Comuna</label>
+  <select id="comuna" name="comuna">
+    <option value="">Todas</option>
+    {% for c in todas_comunas %}
+    <option value="{{ c.slug }}" {% if c.slug == comuna_slug %}selected{% endif %}>{{ c.nombre }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Buscar</button>
+  {% if buscando %}<a class="limpiar" href="{% url 'core:buscar' %}">Quitar filtros</a>{% endif %}
+</form>
+ 
+{% if not buscando %}
+  <p class="aviso">Escribe una palabra o elige una comuna para ver resultados.</p>
+{% else %}
+  <h2>Resultados{% if q %} para «{{ q }}»{% endif %}</h2>
+ 
+  {% if coincidencias %}
+  <h3>Comunas</h3>
+  <ul class="lista">
+    {% for c in coincidencias %}
+    <li><a href="{% url 'comunas:detalle' c.slug %}">{{ c.nombre }}</a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+ 
+  {% if similares %}
+  <h3>Comunas similares</h3>
+  <ul class="lista">
+    {% for c in similares %}
+    <li><a href="{% url 'comunas:detalle' c.slug %}">{{ c.nombre }}</a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+ 
+  {% if en == "todo" or en == "leyes" %}
+  <h3>Leyes y normativas</h3>
+  <ul class="lista">
+    {% for n in normas %}
+    <li>
+      <a href="{{ n.enlace_fuente }}" target="_blank" rel="noopener">{{ n.nombre }}</a>
+      <span class="meta">{{ n.tipo_norma }}</span>
+    </li>
+    {% empty %}
+    <li class="aviso">No se encontraron leyes con esos criterios.</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+ 
+  {% if en == "todo" or en == "noticias" %}
+  <h3>Noticias</h3>
+  <ul class="lista">
+    {% for n in noticias %}
+    <li>
+      <a href="{{ n.enlace }}" target="_blank" rel="noopener">{{ n.titulo }}</a>
+      <span class="meta">{{ n.fuente }}, {{ n.fecha|date:"d/m/Y" }}</span>
+    </li>
+    {% empty %}
+    <li class="aviso">No se encontraron noticias con esos criterios.</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+ 
+  {% if total == 0 %}
+  <p class="aviso">No hubo resultados. Prueba con una sola palabra, revisa la ortografía, quita algún filtro o <a href="{% url 'core:inicio' %}">elige una comuna desde el inicio</a>. También puedes revisar las <a href="{% url 'core:fuentes' %}">fuentes oficiales</a>.</p>
+  {% endif %}
+{% endif %}
+ 
+<p><a class="boton secundario" href="{% url 'core:inicio' %}">Inicio</a></p>
+{% endblock %}
+ 

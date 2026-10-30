@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Noticias de {{ comuna.nombre }}{% endblock %}
+{% block contenido %}
+<div class="tema-{{ comuna.slug }}">
+  <h1>Noticias: {{ comuna.nombre }}</h1>
+ 
+  <form class="filtros" method="get">
+    {% if fuentes %}
+    <label for="fuente">Fuente</label>
+    <select id="fuente" name="fuente">
+      <option value="">Todas</option>
+      {% for f in fuentes %}<option value="{{ f }}" {% if f == fuente %}selected{% endif %}>{{ f }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <label for="desde">Desde</label>
+    <input id="desde" name="desde" type="date" value="{{ desde }}">
+    <label for="hasta">Hasta</label>
+    <input id="hasta" name="hasta" type="date" value="{{ hasta }}">
+    <button type="submit">Filtrar</button>
+    {% if hay_filtros %}
+    <a class="limpiar" href="{% url 'noticias:lista' comuna.slug %}">Quitar filtros</a>
+    {% endif %}
+  </form>
+ 
+  <div class="rejilla">
+    {% for n in pagina %}
+    <article class="tarjeta">
+      <h3><a href="{{ n.enlace }}" target="_blank" rel="noopener">{{ n.titulo }}</a></h3>
+      <p class="meta">{{ n.fuente }}, {{ n.fecha|date:"j \d\e F \d\e Y" }}</p>
+    </article>
+    {% empty %}
+    {% if hay_filtros %}
+    <p class="aviso">No hay noticias que coincidan con los filtros elegidos.</p>
+    {% else %}
+    <p class="aviso">No hay noticias cargadas para esta comuna. Este sitio solo reúne publicaciones de fuentes oficiales y aún no se han agregado noticias de {{ comuna.nombre }}. Mientras tanto, puedes consultar el sitio del <a href="https://mma.gob.cl/" target="_blank" rel="noopener">Ministerio del Medio Ambiente</a> o revisar la lista de <a href="{% url 'core:fuentes' %}">fuentes oficiales</a>.</p>
+    {% endif %}
+    {% endfor %}
+  </div>
+ 
+  {% include "paginacion.html" %}
+ 
+  <p>
+    <a class="boton secundario" href="{% url 'comunas:detalle' comuna.slug %}">Volver</a>
+    <a class="boton secundario" href="{% url 'core:inicio' %}">Inicio</a>
+  </p>
+</div>
+{% endblock %}

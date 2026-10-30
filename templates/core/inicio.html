@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block contenido %}
+<section class="portada">
+  <h1>Información hídrica y ambiental de tu territorio, en un solo lugar</h1>
+  <p>Elige tu comuna y encuentra monitoreo, leyes y noticias de fuentes oficiales.</p>
+  <form class="buscador" action="{% url 'core:buscar' %}" method="get" role="search">
+    <label for="q" class="oculto">Buscar comunas, leyes y noticias</label>
+    <input id="q" name="q" type="search" placeholder="Busca una comuna, ley o noticia (ej.: Petorca, agua)" aria-describedby="ayuda-buscador">
+    <button type="submit">Buscar</button>
+  </form>
+  <p id="ayuda-buscador" class="ayuda">Busca por nombre de comuna, tipo de ley o una palabra del título de una noticia. En los resultados puedes filtrar por comuna y por tipo de contenido.</p>
+</section>
+ 
+<section>
+  <h2>¿Sobre qué comuna quieres consultar?</h2>
+  <div class="comunas">
+    {% for c in comunas %}
+    <a class="tarjeta-comuna tema-{{ c.slug }}" href="{% url 'comunas:detalle' c.slug %}">
+      <strong>{{ c.nombre }}</strong>
+      <span>Región de {{ c.region }}</span>
+      <span class="resumen">{{ c.n_monitoreos }} fuente{{ c.n_monitoreos|pluralize }} de monitoreo · {{ c.n_normas }} norma{{ c.n_normas|pluralize }} · {{ c.n_noticias }} noticia{{ c.n_noticias|pluralize }}</span>
+    </a>
+    {% empty %}
+    <p class="aviso">Aún no hay comunas cargadas. Ejecuta <code>python manage.py cargar_datos</code>.</p>
+    {% endfor %}
+  </div>
+</section>
+ 
+<section>
+  <h2>Noticias recientes</h2>
+  <div class="rejilla">
+    {% for n in ultimas_noticias %}
+    <article class="tarjeta">
+      <h3><a href="{{ n.enlace }}" target="_blank" rel="noopener">{{ n.titulo }}</a></h3>
+      <p class="meta">{{ n.fuente }}, {{ n.fecha|date:"j \d\e F \d\e Y" }}</p>
+    </article>
+    {% empty %}
+    <p class="aviso">Todavía no hay noticias cargadas en este sitio. Mientras tanto, puedes revisar las <a href="{% url 'core:fuentes' %}">fuentes oficiales</a>.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

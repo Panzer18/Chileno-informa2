@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block titulo %}Página no encontrada{% endblock %}
+{% block contenido %}
+<div class="pagina-error">
+  <h1>No encontramos esta página</h1>
+  <p>La dirección puede estar mal escrita o la comuna no existe en este sitio.</p>
+  <p><a class="boton" href="{% url 'core:inicio' %}">Ir al inicio</a></p>
+</div>
+{% endblock %}

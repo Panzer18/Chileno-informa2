@@ -1,0 +1,40 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Chilenos Informa2{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/estilos.css' %}">
+</head>
+<body>
+<a class="saltar" href="#contenido">Saltar al contenido</a>
+<header class="cabecera">
+  <a class="marca" href="{% url 'core:inicio' %}">Chilenos Informa2</a>
+  <nav aria-label="Principal">
+    <ul class="menu">
+      <li><a href="{% url 'core:inicio' %}" {% if request.path == '/' %}aria-current="page"{% endif %}>Inicio</a></li>
+      <li><a href="{% url 'core:que_es' %}" {% if request.path == '/que-es/' %}aria-current="page"{% endif %}>¿Qué es este sitio?</a></li>
+      <li class="desplegable">
+        <a href="#" aria-haspopup="true">Comunas</a>
+        <ul class="submenu">
+          {% for c in menu_comunas %}
+          <li><a href="{% url 'comunas:detalle' c.slug %}">{{ c.nombre }}</a></li>
+          {% endfor %}
+        </ul>
+      </li>
+      <li><a href="{% url 'core:fuentes' %}" {% if request.path == '/fuentes/' %}aria-current="page"{% endif %}>Fuentes</a></li>
+    </ul>
+  </nav>
+</header>
+ 
+<main id="contenido" class="contenido" tabindex="-1">
+  {% block contenido %}{% endblock %}
+</main>
+ 
+<footer class="pie">
+  <p>Esta web no produce información nueva: reúne enlaces a fuentes oficiales (DGA, SMA, MMA, SIMBIO, PRAS y Ley Chile).</p>
+  <p>Equipo 10, Grupo y los Minions · IWG400, Universidad Técnica Federico Santa María.</p>
+</footer>
+</body>
+</html>

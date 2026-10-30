@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block titulo %}Monitoreo en {{ comuna.nombre }}{% endblock %}
+{% block contenido %}
+<div class="tema-{{ comuna.slug }}">
+  <h1>Monitoreo del sector: {{ comuna.nombre }}</h1>
+ 
+  <h2>Recursos hídricos</h2>
+  <div class="rejilla">
+    {% for m in hidricos %}
+    <article class="tarjeta">
+      <h3>{{ m.parametro }}</h3>
+      <p class="meta">Fuente: {{ m.fuente }}</p>
+      {% if m.valor %}<p>{{ m.valor }}{% if m.fecha_medicion %} ({{ m.fecha_medicion|date:"d/m/Y" }}){% endif %}</p>{% endif %}
+      <a class="boton" href="{{ m.enlace_fuente }}" target="_blank" rel="noopener">Ver en {{ m.fuente }}</a>
+      {% if m.ultima_revision %}
+      <p class="revision">Enlace revisado el {{ m.ultima_revision|date:"d/m/Y" }}</p>
+      {% else %}
+      <p class="revision pendiente">Revisión pendiente</p>
+      {% endif %}
+    </article>
+    {% empty %}
+    <p class="aviso">No hay información de monitoreo hídrico disponible para esta comuna.</p>
+    {% endfor %}
+  </div>
+ 
+  <h2>Situación ambiental</h2>
+  <div class="rejilla">
+    {% for m in ambientales %}
+    <article class="tarjeta">
+      <h3>{{ m.parametro }}</h3>
+      <p class="meta">Fuente: {{ m.fuente }}</p>
+      {% if m.valor %}<p>{{ m.valor }}{% if m.fecha_medicion %} ({{ m.fecha_medicion|date:"d/m/Y" }}){% endif %}</p>{% endif %}
+      <a class="boton" href="{{ m.enlace_fuente }}" target="_blank" rel="noopener">Ver en {{ m.fuente }}</a>
+      {% if m.ultima_revision %}
+      <p class="revision">Enlace revisado el {{ m.ultima_revision|date:"d/m/Y" }}</p>
+      {% else %}
+      <p class="revision pendiente">Revisión pendiente</p>
+      {% endif %}
+    </article>
+    {% empty %}
+    <p class="aviso">No hay información de monitoreo ambiental disponible para esta comuna.</p>
+    {% endfor %}
+  </div>
+ 
+  <p>
+    <a class="boton secundario" href="{% url 'comunas:detalle' comuna.slug %}">Volver</a>
+    <a class="boton secundario" href="{% url 'core:inicio' %}">Inicio</a>
+  </p>
+</div>
+{% endblock %}
+ 

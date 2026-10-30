@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block titulo %}{{ comuna.nombre }}{% endblock %}
+{% block contenido %}
+<div class="tema-{{ comuna.slug }}">
+  <h1>¿Qué información desea sobre {{ comuna.nombre }}?</h1>
+  <p>Información reunida de fuentes oficiales sobre {{ comuna.nombre }} (Región de {{ comuna.region }}). Elige qué quieres consultar:</p>
+  <div class="opciones">
+    <a class="opcion" href="{% url 'comunas:monitoreo' comuna.slug %}">
+      <strong>Monitoreo del sector</strong>
+      <span>{% if resumen.monitoreos %}{{ resumen.monitoreos }} fuente{{ resumen.monitoreos|pluralize }} de monitoreo{% else %}Sin fuentes cargadas aún{% endif %}</span>
+    </a>
+    <a class="opcion" href="{% url 'normativa:lista' comuna.slug %}">
+      <strong>Leyes y normativas</strong>
+      <span>{% if resumen.normas %}{{ resumen.normas }} norma{{ resumen.normas|pluralize }}{% else %}Sin normas cargadas aún{% endif %}</span>
+    </a>
+    <a class="opcion" href="{% url 'noticias:lista' comuna.slug %}">
+      <strong>Noticias</strong>
+      <span>{% if resumen.noticias %}{{ resumen.noticias }} noticia{{ resumen.noticias|pluralize }}{% else %}Sin noticias cargadas aún{% endif %}</span>
+    </a>
+  </div>
+  <p><a class="boton secundario" href="{% url 'core:inicio' %}">Volver</a></p>
+</div>
+{% endblock %}

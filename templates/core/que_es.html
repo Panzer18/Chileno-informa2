@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block titulo %}¿Qué es este sitio?{% endblock %}
+{% block contenido %}
+<h1>¿Qué es este sitio?</h1>
+<p>Las personas que viven en zonas afectadas hídrica y ambientalmente deben buscar la información de su territorio en muchas páginas distintas. Este sitio las reúne: eliges tu comuna y te llevamos a los datos de monitoreo, las leyes y las noticias publicadas por organismos oficiales.</p>
+<p>No generamos información nueva. Cada dato o noticia indica su fuente y enlaza a la página original.</p>
+<p><a class="boton" href="{% url 'core:inicio' %}">Elegir una comuna</a></p>
+{% endblock %}
