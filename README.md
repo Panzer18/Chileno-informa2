@@ -6,8 +6,8 @@ para las comunas de **Petorca** y **Quintero-Puchuncaví**. No genera informaci�
 
 ## Requisitos
 
-- Python 3 (versión usada en el desarrollo: ___ ; se comprueba con `python --version`)
-- Django (se instala con `requirements.txt`)
+- Python 3.15.2
+- Django 6.1.2 (se instala con `requirements.txt`)
 - No necesita internet para ejecutarse, salvo para abrir los enlaces externos a las fuentes.
 
 ## Cómo ejecutarlo en local (Windows, PowerShell)
