@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block titulo %}Contáctanos{% endblock %}
+{% block contenido %}
+<h1>Contáctanos</h1>
+<p>¿Tienes una consulta, encontraste un enlace que no funciona o quieres sugerirnos una fuente, ley o noticia? Escríbenos con este formulario.</p>
+ 
+{% if messages %}
+<div class="mensajes" role="status">
+  {% for m in messages %}<p class="exito">{{ m }}</p>{% endfor %}
+</div>
+{% endif %}
+ 
+<form class="formulario" method="post" action="{% url 'core:contacto' %}">
+  {% csrf_token %}
+  <div class="campo">
+    <label for="{{ form.nombre.id_for_label }}">Nombre</label>
+    {{ form.nombre }}
+    {{ form.nombre.errors }}
+  </div>
+  <div class="campo">
+    <label for="{{ form.correo.id_for_label }}">Correo electrónico</label>
+    {{ form.correo }}
+    {{ form.correo.errors }}
+  </div>
+  <div class="campo">
+    <label for="{{ form.motivo.id_for_label }}">Motivo</label>
+    {{ form.motivo }}
+    {{ form.motivo.errors }}
+  </div>
+  <div class="campo">
+    <label for="{{ form.mensaje.id_for_label }}">Mensaje</label>
+    {{ form.mensaje }}
+    {{ form.mensaje.errors }}
+  </div>
+  <div class="trampa" aria-hidden="true">
+    <label for="{{ form.sitio_web.id_for_label }}">No rellenar este campo</label>
+    {{ form.sitio_web }}
+  </div>
+  <button type="submit">Enviar mensaje</button>
+</form>
+ 
+<p class="meta">Guardamos tu nombre, correo y mensaje solo para poder revisarlos y responderte. No incluyas datos personales sensibles.</p>
+{% endblock %}

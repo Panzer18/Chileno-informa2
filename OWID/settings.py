@@ -131,3 +131,10 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+# ---------- Formulario de contacto ----------
+# Por defecto el correo se muestra en la terminal (no se envía de verdad).
+DEFAULT_FROM_EMAIL = 'no-reply@chilenosinforma.local'
+# Correo del equipo que recibirá los mensajes. Si lo dejas vacío, los mensajes
+# solo se guardan en el panel de administración.
+CONTACTO_DESTINO = 'correo-del-equipo@ejemplo.com'

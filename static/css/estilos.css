@@ -98,3 +98,11 @@ main:focus { outline: none; }
 .filtros input[type="search"] { padding: .45rem; font: inherit; min-width: 14rem; }
 .opcion span { font-weight: 400; font-size: .95rem; }
 .tarjeta-comuna .resumen { font-size: .95rem; margin-top: .5rem; }
+/* ---------- Formulario de contacto ---------- */
+.formulario { max-width: 40rem; margin-top: 1.25rem; }
+.campo { display: flex; flex-direction: column; gap: .3rem; margin-bottom: 1rem; }
+.campo label { font-weight: 600; }
+.campo input, .campo select, .campo textarea { padding: .6rem; font: inherit; background: #fff; border: 1px solid #5b7580; border-radius: 4px; }
+.errorlist { list-style: none; margin: 0; padding: .4rem .6rem; background: #fde8e8; border-left: 4px solid #b3261e; color: #7a1712; font-size: .9rem; }
+.exito { margin: 0 0 1rem; padding: .8rem 1rem; background: #e6f4ea; border-left: 4px solid #2f7a45; }
+.trampa { position: absolute; left: -9999px; }
