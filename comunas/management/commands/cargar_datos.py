@@ -7,9 +7,12 @@ class Command(BaseCommand):
     help = "Carga las comunas, los enlaces de monitoreo y las fuentes del entregable P2."
  
     def handle(self, *args, **opts):
-        qp, _ = Comuna.objects.get_or_create(
-            slug="quintero-puchuncavi",
-            defaults={"nombre": "Quintero-Puchuncaví", "region": "Valparaíso"})
+        quintero, _ = Comuna.objects.get_or_create(
+            slug="quintero",
+            defaults={"nombre": "Quintero", "region": "Valparaíso"})
+        puchuncavi, _ = Comuna.objects.get_or_create(
+            slug="puchuncavi",
+            defaults={"nombre": "Puchuncaví", "region": "Valparaíso"})
         pe, _ = Comuna.objects.get_or_create(
             slug="petorca", defaults={"nombre": "Petorca", "region": "Valparaíso"})
  
@@ -17,9 +20,12 @@ class Command(BaseCommand):
         sma = "https://portal.sma.gob.cl/index.php/gestion-concon-quintero-y-puchuncavi/red-cqp/"
         pras = "https://pras.mma.gob.cl/quintero-puchuncavi/medida-quintero-puchuncavi-i-1-2/"
         monitoreos = [
-            (qp, "hidrico", "Estaciones y estadísticas hídricas", "DGA", dga),
-            (qp, "ambiental", "Red de monitoreo de calidad del aire", "SMA", sma),
-            (qp, "ambiental", "Observatorio Ambiental (PRAS, medida 1.1.2)", "PRAS", pras),
+            (quintero, "hidrico", "Estaciones y estadísticas hídricas", "DGA", dga),
+            (quintero, "ambiental", "Red de monitoreo de calidad del aire", "SMA", sma),
+            (quintero, "ambiental", "Observatorio Ambiental (PRAS, medida 1.1.2)", "PRAS", pras),
+            (puchuncavi, "hidrico", "Estaciones y estadísticas hídricas", "DGA", dga),
+            (puchuncavi, "ambiental", "Red de monitoreo de calidad del aire", "SMA", sma),
+            (puchuncavi, "ambiental", "Observatorio Ambiental (PRAS, medida 1.1.2)", "PRAS", pras),
             (pe, "hidrico", "Estaciones y estadísticas hídricas", "DGA", dga),
         ]
         for comuna, tipo, nombre, fuente, enlace in monitoreos:

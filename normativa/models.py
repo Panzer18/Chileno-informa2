@@ -24,7 +24,14 @@ class Norma(models.Model):
         blank=True
     )
 
+    # Enlace público que verá el usuario
     enlace_fuente = models.URLField()
+
+    # URI original del recurso en datos.bcn.cl
+    enlace_bcn = models.URLField(
+        max_length=500,
+        blank=True
+    )
 
     comunas = models.ManyToManyField(
         "comunas.Comuna",

@@ -16,6 +16,10 @@ NS_CONTENIDO = "{http://purl.org/rss/1.0/modules/content/}"
 # Canales adicionales para comunas cuya etiqueta en el MMA no coincide con su slug.
 # Se escribe: "slug-de-la-comuna": ["canal 1", "canal 2"]
 FEEDS_ESPECIALES = {
+    # La etiqueta del MMA cubre toda la zona, así que se usa para las dos comunas.
+    "quintero": [f"{BASE_MMA}/tag/quintero-y-puchuncavi/feed/"],
+    "puchuncavi": [f"{BASE_MMA}/tag/quintero-y-puchuncavi/feed/"],
+    # Se conserva por compatibilidad con las pruebas antiguas.
     "quintero-puchuncavi": [f"{BASE_MMA}/tag/quintero-y-puchuncavi/feed/"],
 }
  

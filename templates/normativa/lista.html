@@ -3,6 +3,8 @@
 {% block contenido %}
 <div class="tema-{{ comuna.slug }}">
   <h1>Leyes y normativas: {{ comuna.nombre }}</h1>
+  <p>Se muestran las normas de {{ comuna.nombre }}, las de su región y las nacionales que aplican a todo el país.</p>
+ 
   {% if tipos %}
   <form class="filtros" method="get">
     <label for="tipo">Tipo de norma</label>
@@ -10,17 +12,36 @@
       <option value="">Todas</option>
       {% for t in tipos %}<option value="{{ t }}" {% if t == tipo %}selected{% endif %}>{{ t }}</option>{% endfor %}
     </select>
-    <button type="submit">Filtrar</button>
+    {% if ambitos|length > 1 %}
+    <label for="ambito">Alcance</label>
+    <select id="ambito" name="ambito">
+      <option value="">Todos</option>
+      {% for clave, etiqueta in ambitos %}<option value="{{ clave }}" {% if clave == ambito %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <label for="orden">Ordenar por fecha</label>
+    <select id="orden" name="orden">
+      {% for clave, etiqueta in ordenes %}<option value="{{ clave }}" {% if clave == orden %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}
+    </select>
+    <button type="submit">Aplicar</button>
+    {% if hay_filtros %}
+    <a class="limpiar" href="{% url 'normativa:lista' comuna.slug %}">Quitar filtros</a>
+    {% endif %}
   </form>
   {% endif %}
+ 
   <ul class="lista">
     {% for n in pagina %}
     <li>
       <a href="{{ n.enlace_fuente }}" target="_blank" rel="noopener">{{ n.nombre }}</a>
-      <span class="meta">{{ n.tipo_norma }}{% if n.fecha_publicacion %}, publicada el {{ n.fecha_publicacion|date:"d/m/Y" }}{% endif %}</span>
+      <span class="meta">{{ n.get_ambito_display }} · {{ n.tipo_norma }}{% if n.fecha_publicacion %}, publicada el {{ n.fecha_publicacion|date:"d/m/Y" }}{% else %}, sin fecha registrada{% endif %}</span>
     </li>
     {% empty %}
+    {% if hay_filtros %}
+    <li class="aviso">No hay normas que coincidan con los filtros elegidos.</li>
+    {% else %}
     <li class="aviso">No hay leyes ni normativas cargadas para esta comuna.</li>
+    {% endif %}
     {% endfor %}
   </ul>
  
@@ -32,4 +53,3 @@
   </p>
 </div>
 {% endblock %}
- 

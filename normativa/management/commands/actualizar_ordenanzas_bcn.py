@@ -1,4 +1,6 @@
-"""Importa ordenanzas municipales desde BCN para las comunas registradas en Django.
+
+"""
+Importa ordenanzas municipales desde BCN para las comunas registradas en Django.
 
 Instalación:
     normativa/management/commands/actualizar_ordenanzas_bcn.py
@@ -10,9 +12,16 @@ Opciones:
     --solo-ordenanzas   Consulta únicamente ORZ.
     --pausa 0.2         Pausa entre peticiones HTTP.
 
-El comando no consulta el catálogo general cl/organismo. Construye las consultas
-usando Comuna.objects.all(), por lo que una comuna nueva se incorpora en la
-siguiente ejecución.
+El comando construye las consultas usando Comuna.objects.all(),
+por lo que las nuevas comunas se incorporan automáticamente.
+
+Identificadores:
+    enlace_bcn:
+        URI original de BCN. Se utiliza para identificar y actualizar
+        cada ordenanza sin crear duplicados.
+
+    enlace_fuente:
+        URL pública de Ley Chile, construida mediante leychileCode.
 """
 
 import json
@@ -21,6 +30,7 @@ import time
 import unicodedata
 import urllib.error
 import urllib.request
+
 from datetime import date
 from urllib.parse import urlparse
 
@@ -32,349 +42,828 @@ from normativa.models import Norma
 
 
 BASE_RECURSO = "http://datos.bcn.cl/recurso"
+
 USER_AGENT = "ChilenosInforma2/1.0 (proyecto academico)"
 
-# Casos en que el nombre/slug de la comuna no coincide con el organismo emisor.
-# Quintero-Puchuncaví se consulta contra ambas municipalidades.
-ALIAS_ORGANISMOS = {
-    "quintero-puchuncavi": (
-        "municipalidad-de-quintero",
-        "municipalidad-de-puchuncavi",
-    ),
-}
 
+# --------------------------------------------------
+# ALIAS DE ORGANISMOS
+# --------------------------------------------------
+
+# Casos en que el nombre/slug de la comuna no coincide
+# directamente con el organismo emisor de BCN.
+
+ALIAS_ORGANISMOS = {}
+
+
+# --------------------------------------------------
+# FUNCIONES AUXILIARES
+# --------------------------------------------------
 
 def normalizar(texto):
-    texto = unicodedata.normalize("NFD", str(texto or "").lower())
+    texto = unicodedata.normalize(
+        "NFD",
+        str(texto or "").lower()
+    )
+
     texto = "".join(
-        caracter for caracter in texto
+        caracter
+        for caracter in texto
         if unicodedata.category(caracter) != "Mn"
     )
-    return re.sub(r"\s+", " ", texto).strip()
+
+    return re.sub(
+        r"\s+",
+        " ",
+        texto
+    ).strip()
 
 
 def nombre_predicado(predicado):
-    return str(predicado).replace("#", "/").rstrip("/").split("/")[-1].lower()
+    return (
+        str(predicado)
+        .replace("#", "/")
+        .rstrip("/")
+        .split("/")[-1]
+        .lower()
+    )
 
 
 def valor_rdf(valor):
     if isinstance(valor, dict):
-        return valor.get("value") or valor.get("@value") or valor.get("@id") or ""
+        return (
+            valor.get("value")
+            or valor.get("@value")
+            or valor.get("@id")
+            or ""
+        )
+
     return valor or ""
 
 
 def normalizar_enlace(enlace):
     enlace = (enlace or "").strip().rstrip("/")
-    return re.sub(r"/es@[^/]+$", "", enlace)
+
+    return re.sub(
+        r"/es@[^/]+$",
+        "",
+        enlace
+    )
 
 
 def parsear_fecha(valor):
+
     valor = valor_rdf(valor)
+
     if not valor:
         return None
+
     texto = str(valor).strip()
+
     try:
         return date.fromisoformat(texto[:10])
+
     except ValueError:
         return None
 
 
 def extraer_tipo_y_organismo(enlace):
-    partes = [parte for parte in urlparse(enlace).path.split("/") if parte]
+    """
+    Extrae el tipo de documento y el organismo desde una URI BCN.
+
+    Ejemplo:
+    /cl/orz/municipalidad-de-quintero/2007-12-29/s-n
+
+    Resultado:
+    ("orz", "municipalidad-de-quintero")
+    """
+
+    partes = [
+        parte
+        for parte in urlparse(enlace).path.split("/")
+        if parte
+    ]
+
     try:
         indice = partes.index("cl")
-        return partes[indice + 1].lower(), partes[indice + 2].lower()
+
+        return (
+            partes[indice + 1].lower(),
+            partes[indice + 2].lower()
+        )
+
     except (ValueError, IndexError):
         return "", ""
 
 
 def slug_comuna(nombre):
     texto = normalizar(nombre)
-    texto = re.sub(r"[^a-z0-9]+", "-", texto)
+
+    texto = re.sub(
+        r"[^a-z0-9]+",
+        "-",
+        texto
+    )
+
     return texto.strip("-")
 
 
 def slugs_organismo_comuna(comuna):
-    """Devuelve los slugs BCN que pueden corresponder a una comuna Django."""
-    clave = slug_comuna(comuna.slug or comuna.nombre)
+    """
+    Devuelve los slugs BCN que pueden corresponder
+    a una comuna registrada en Django.
+    """
+
+    clave = slug_comuna(
+        comuna.slug or comuna.nombre
+    )
+
     if clave in ALIAS_ORGANISMOS:
         return ALIAS_ORGANISMOS[clave]
 
-    # Algunos proyectos guardan en slug el nombre completo del organismo.
-    if clave.startswith("municipalidad-"):
-        return (clave,)
     if clave.startswith("municipalidad-de-"):
         return (clave,)
-    return (f"municipalidad-de-{clave}",)
+
+    if clave.startswith("municipalidad-"):
+        return (clave,)
+
+    return (
+        f"municipalidad-de-{clave}",
+    )
 
 
 def organismos_desde_comunas(comunas):
-    """Construye la lista de organismos exclusivamente desde Comuna en Django."""
+    """
+    Construye la lista de organismos exclusivamente
+    desde las comunas registradas en Django.
+    """
+
     organismos = {}
+
     for comuna in comunas:
+
         for slug in slugs_organismo_comuna(comuna):
+
             if slug not in organismos:
-                organismos[slug] = {"nombre": f"Municipalidad asociada a {comuna.nombre}", "slug": slug}
+
+                organismos[slug] = {
+                    "nombre": (
+                        f"Municipalidad asociada a {comuna.nombre}"
+                    ),
+                    "slug": slug,
+                }
+
     return list(organismos.values())
 
 
+# --------------------------------------------------
+# EXTRACCIÓN DE REFERENCIAS DESDE BCN
+# --------------------------------------------------
+
 def extraer_items_norma(data):
-    """Extrae URIs de normas desde la relación RDF bcn-norms#creatorOf."""
+    """
+    Extrae las URIs de las normas desde la relación RDF
+    bcn-norms#creatorOf.
+    """
+
     items = {}
+
     if not isinstance(data, dict):
         return []
 
     for propiedades in data.values():
+
         if not isinstance(propiedades, dict):
             continue
+
         for predicado, valores in propiedades.items():
+
             if nombre_predicado(predicado) != "creatorof":
                 continue
+
             if not isinstance(valores, list):
                 valores = [valores]
+
             for valor in valores:
+
                 uri = valor_rdf(valor)
-                if isinstance(uri, str) and uri.startswith(("http://", "https://")):
+
+                if (
+                    isinstance(uri, str)
+                    and uri.startswith(("http://", "https://"))
+                ):
+
                     clave = normalizar_enlace(uri)
+
                     items[clave] = clave
+
     return list(items.values())
 
 
+# --------------------------------------------------
+# EXTRACCIÓN DE DATOS DE UNA ORDENANZA
+# --------------------------------------------------
+
 def extraer_datos_norma(data, enlace):
+
     if not isinstance(data, dict):
         return None
 
     nombre = ""
     fecha = None
     tipo = ""
+    codigo_leychile = ""
 
     for propiedades in data.values():
+
         if not isinstance(propiedades, dict):
             continue
+
         for predicado, valores in propiedades.items():
+
             propiedad = nombre_predicado(predicado)
+
             if not isinstance(valores, list):
                 valores = [valores]
+
             for valor in valores:
+
                 contenido = valor_rdf(valor)
+
                 if not contenido:
                     continue
-                if propiedad in {"title", "titulo", "label", "name"} and not nombre:
-                    nombre = str(contenido).strip()
-                elif propiedad in {"publishdate", "fecha", "date"} and not fecha:
-                    fecha = contenido
-                elif propiedad in {"type", "tiponorma"} and not tipo:
-                    tipo = str(contenido).strip()
+
+                if propiedad in {
+                    "title",
+                    "titulo",
+                    "label",
+                    "name",
+                }:
+
+                    if not nombre:
+                        nombre = str(contenido).strip()
+
+                elif propiedad in {
+                    "publishdate",
+                    "fecha",
+                    "date",
+                }:
+
+                    if not fecha:
+                        fecha = contenido
+
+                elif propiedad in {
+                    "type",
+                    "tiponorma",
+                }:
+
+                    if not tipo:
+                        tipo = str(contenido).strip()
+
+                elif propiedad == "leychilecode":
+
+                    codigo_leychile = str(contenido).strip()
 
     if not nombre:
         return None
 
     tipo_uri, _ = extraer_tipo_y_organismo(enlace)
+
     tipo_n = normalizar(tipo)
     titulo_n = normalizar(nombre)
+
     if tipo_uri == "orz" or "ordenanza" in tipo_n:
+
         etiqueta = "Ordenanza"
-    elif tipo_uri == "dto" or "decreto" in tipo_n or re.search(r"\bdecreto\b", titulo_n):
+
+    elif (
+        tipo_uri == "dto"
+        or "decreto" in tipo_n
+        or re.search(r"\bdecreto\b", titulo_n)
+    ):
+
         etiqueta = "Decreto"
-    elif "reglamento" in tipo_n or "reglamento" in titulo_n:
+
+    elif (
+        "reglamento" in tipo_n
+        or "reglamento" in titulo_n
+    ):
+
         etiqueta = "Reglamento"
+
     else:
+
         etiqueta = "Norma municipal"
+
+    # URI original de BCN.
+    enlace_bcn = normalizar_enlace(enlace)
+
+    # Enlace público de Ley Chile.
+    # No se inventa el código si BCN no lo entrega.
+    if codigo_leychile.isdigit():
+
+        enlace_publico = (
+            "https://www.bcn.cl/leychile/navegar"
+            f"?idNorma={codigo_leychile}"
+        )
+
+    else:
+
+        enlace_publico = enlace_bcn
 
     return {
         "nombre": nombre,
         "tipo_norma": etiqueta,
         "fecha_publicacion": parsear_fecha(fecha),
-        "enlace_fuente": normalizar_enlace(enlace),
+        "enlace_fuente": enlace_publico,
+        "enlace_bcn": enlace_bcn,
     }
 
 
+# --------------------------------------------------
+# ASOCIACIÓN DE COMUNAS
+# --------------------------------------------------
+
 def comunas_del_organismo(slug_organismo, comunas):
-    slug_organismo = (slug_organismo or "").lower()
+
+    slug_organismo = (
+        slug_organismo or ""
+    ).lower()
+
     return [
-        comuna for comuna in comunas
+        comuna
+        for comuna in comunas
         if slug_organismo in slugs_organismo_comuna(comuna)
     ]
 
 
 def comunas_mencionadas_en_titulo(titulo, comunas):
+
     texto = normalizar(titulo)
+
     encontradas = []
+
     for comuna in comunas:
+
         nombre = normalizar(comuna.nombre)
+
         if not nombre:
             continue
-        patron = rf"(?<![a-z0-9]){re.escape(nombre)}(?![a-z0-9])"
+
+        patron = (
+            rf"(?<![a-z0-9])"
+            rf"{re.escape(nombre)}"
+            rf"(?![a-z0-9])"
+        )
+
         if re.search(patron, texto):
+
             encontradas.append(comuna)
             continue
-        partes = [p.strip() for p in nombre.split("-") if p.strip()]
-        if len(partes) > 1 and all(
-            re.search(rf"(?<![a-z0-9]){re.escape(p)}(?![a-z0-9])", texto)
-            for p in partes
-        ):
-            encontradas.append(comuna)
+
+        partes = [
+            parte.strip()
+            for parte in nombre.split("-")
+            if parte.strip()
+        ]
+
+        if len(partes) > 1:
+
+            todas_presentes = all(
+                re.search(
+                    rf"(?<![a-z0-9]){re.escape(parte)}(?![a-z0-9])",
+                    texto
+                )
+                for parte in partes
+            )
+
+            if todas_presentes:
+                encontradas.append(comuna)
+
     return encontradas
 
 
+# --------------------------------------------------
+# COMANDO DJANGO
+# --------------------------------------------------
+
 class Command(BaseCommand):
-    help = "Importa ordenanzas municipales desde BCN para las comunas registradas en Django."
+
+    help = (
+        "Importa ordenanzas municipales desde BCN "
+        "para las comunas registradas en Django."
+    )
 
     def add_arguments(self, parser):
+
         parser.add_argument(
-            "--pausa", type=float, default=0.2,
-            help="Segundos de pausa entre peticiones (predeterminado: 0.2).",
+            "--pausa",
+            type=float,
+            default=0.2,
+            help=(
+                "Segundos de pausa entre peticiones "
+                "(predeterminado: 0.2)."
+            ),
         )
+
         parser.add_argument(
-            "--solo-ordenanzas", action="store_true",
-            help="Importa únicamente normas ORZ; omite decretos relacionados.",
+            "--solo-ordenanzas",
+            action="store_true",
+            help=(
+                "Importa únicamente normas ORZ; "
+                "omite decretos relacionados."
+            ),
         )
+
+    # --------------------------------------------------
+    # EJECUCIÓN PRINCIPAL
+    # --------------------------------------------------
 
     def handle(self, *args, **opciones):
+
         pausa = max(0, opciones["pausa"])
-        comunas = list(Comuna.objects.all())
 
-        self.stdout.write(self.style.MIGRATE_HEADING(
-            "Consultando ordenanzas municipales de las comunas registradas..."
-        ))
-        self.stdout.write(f"Comunas actualmente registradas en Django: {len(comunas)}")
+        comunas = list(
+            Comuna.objects.all()
+        )
+
+        self.stdout.write(
+            self.style.MIGRATE_HEADING(
+                "Consultando ordenanzas municipales de BCN..."
+            )
+        )
+
+        self.stdout.write(
+            f"Comunas registradas en Django: {len(comunas)}"
+        )
+
         if not comunas:
-            raise CommandError("No hay comunas registradas en Django. No se consultó la BCN.")
 
-        organismos = organismos_desde_comunas(comunas)
-        self.stdout.write(f"Municipalidades que se consultarán: {len(organismos)}")
-        for organismo in organismos:
-            self.stdout.write(f"  - {organismo['slug']}")
-
-        self.errores_lectura = []
-        registros = self._recopilar_normas(organismos, pausa, opciones["solo_ordenanzas"])
-        if registros is None:
             raise CommandError(
-                "No fue posible completar la consulta a la BCN. No se modificó la base de datos."
+                "No hay comunas registradas en Django. "
+                "No se consultó BCN."
             )
 
-        self.stdout.write(f"Documentos municipales recopilados: {len(registros)}")
-        resumen = self._guardar(registros, comunas)
+        organismos = organismos_desde_comunas(
+            comunas
+        )
+
+        self.stdout.write(
+            f"Municipalidades que se consultarán: {len(organismos)}"
+        )
+
+        for organismo in organismos:
+
+            self.stdout.write(
+                f"  - {organismo['slug']}"
+            )
+
+        self.errores_lectura = []
+
+        registros = self._recopilar_normas(
+            organismos,
+            pausa,
+            opciones["solo_ordenanzas"],
+        )
+
+        if registros is None:
+
+            raise CommandError(
+                "No fue posible completar la consulta a BCN. "
+                "No se modificó la base de datos."
+            )
+
+        self.stdout.write(
+            f"\nDocumentos municipales recopilados: {len(registros)}"
+        )
+
+        resumen = self._guardar(
+            registros,
+            comunas
+        )
+
         self.stdout.write("")
-        self.stdout.write(self.style.SUCCESS("Importación terminada."))
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                "Importación terminada."
+            )
+        )
+
         for clave, valor in resumen.items():
+
             if clave != "por_comuna":
-                self.stdout.write(f"{clave.replace('_', ' ').capitalize()}: {valor}")
 
-        self.stdout.write("\nNormas asociadas por comuna:")
+                self.stdout.write(
+                    f"{clave.replace('_', ' ').capitalize()}: {valor}"
+                )
+
+        self.stdout.write(
+            "\nNormas asociadas por comuna:"
+        )
+
         for nombre_comuna, cantidad in resumen["por_comuna"].items():
-            self.stdout.write(f"  - {nombre_comuna}: {cantidad}")
 
-        self.stdout.write(f"\nDocumentos pendientes por error de lectura: {len(self.errores_lectura)}")
+            self.stdout.write(
+                f"  - {nombre_comuna}: {cantidad}"
+            )
+
+        self.stdout.write(
+            "\nDocumentos pendientes por error de lectura: "
+            f"{len(self.errores_lectura)}"
+        )
+
         for error in self.errores_lectura:
-            self.stdout.write(self.style.WARNING(f"  - {error['url']} ({error['detalle']})"))
+
+            self.stdout.write(
+                self.style.WARNING(
+                    f"  - {error['url']} ({error['detalle']})"
+                )
+            )
+
+    # --------------------------------------------------
+    # SOLICITUDES HTTP
+    # --------------------------------------------------
 
     def _solicitar_json(self, url):
-        """Solicita RDF/JSON; reintenta y prueba HTTPS si HTTP no entrega JSON."""
+        """
+        Solicita RDF/JSON.
+
+        Reintenta las peticiones y prueba HTTPS cuando
+        la dirección HTTP no entrega una respuesta válida.
+        """
+
         urls = [url]
+
         if url.startswith("http://"):
-            urls.append("https://" + url[len("http://"):])
+
+            urls.append(
+                "https://" + url[len("http://"):]
+            )
 
         ultimo_error = None
+
         for url_actual in urls:
+
             for intento in range(1, 4):
+
                 solicitud = urllib.request.Request(
                     url_actual,
                     headers={
                         "User-Agent": USER_AGENT,
-                        "Accept": "application/rdf+json, application/json",
+                        "Accept": (
+                            "application/rdf+json, "
+                            "application/json, */*"
+                        ),
                     },
                 )
+
                 try:
-                    with urllib.request.urlopen(solicitud, timeout=60) as respuesta:
-                        cuerpo = respuesta.read().decode("utf-8", errors="replace")
+
+                    with urllib.request.urlopen(
+                        solicitud,
+                        timeout=60
+                    ) as respuesta:
+
+                        cuerpo = respuesta.read().decode(
+                            "utf-8",
+                            errors="replace"
+                        )
+
                     if not cuerpo.strip():
-                        raise ValueError(f"Respuesta vacía desde {url_actual}")
-                    try:
-                        return json.loads(cuerpo)
-                    except json.JSONDecodeError as error:
-                        muestra = cuerpo[:100].replace("\n", " ").strip()
+
                         raise ValueError(
-                            f"Respuesta no JSON desde {url_actual}: {error}; "
-                            f"inicio de respuesta: {muestra!r}"
+                            f"Respuesta vacía desde {url_actual}"
+                        )
+
+                    try:
+
+                        return json.loads(cuerpo)
+
+                    except json.JSONDecodeError as error:
+
+                        muestra = (
+                            cuerpo[:100]
+                            .replace("\n", " ")
+                            .strip()
+                        )
+
+                        raise ValueError(
+                            f"Respuesta no JSON desde {url_actual}: "
+                            f"{error}; inicio de respuesta: {muestra!r}"
                         ) from error
-                except (OSError, urllib.error.URLError, urllib.error.HTTPError, ValueError) as error:
+
+                except (
+                    OSError,
+                    urllib.error.URLError,
+                    urllib.error.HTTPError,
+                    ValueError,
+                ) as error:
+
                     ultimo_error = error
-                    # No repetir errores HTTP permanentes (por ejemplo, 404).
-                    if isinstance(error, urllib.error.HTTPError) and error.code not in {408, 429, 500, 502, 503, 504}:
+
+                    # No repetir errores HTTP permanentes.
+                    if (
+                        isinstance(error, urllib.error.HTTPError)
+                        and error.code not in {
+                            408,
+                            429,
+                            500,
+                            502,
+                            503,
+                            504,
+                        }
+                    ):
+
                         break
+
                     if intento < 3:
                         time.sleep(0.5 * intento)
 
-        if isinstance(ultimo_error, urllib.error.HTTPError):
-            raise ultimo_error
-        raise ValueError(f"Fallaron los intentos para {url}: {ultimo_error}") from ultimo_error
+        if isinstance(
+            ultimo_error,
+            urllib.error.HTTPError
+        ):
 
-    def _recopilar_normas(self, organismos, pausa, solo_ordenanzas):
+            raise ultimo_error
+
+        raise ValueError(
+            f"Fallaron los intentos para {url}: {ultimo_error}"
+        ) from ultimo_error
+
+    # --------------------------------------------------
+    # RECOPILACIÓN DE ORDENANZAS
+    # --------------------------------------------------
+
+    def _recopilar_normas(
+        self,
+        organismos,
+        pausa,
+        solo_ordenanzas,
+    ):
+
         registros = {}
+
         total_organismos = len(organismos)
+
         errores_graves = 0
 
-        for indice, organismo in enumerate(organismos, start=1):
+        for indice, organismo in enumerate(
+            organismos,
+            start=1
+        ):
+
             slug_org = organismo["slug"]
-            tipos = ("orz",) if solo_ordenanzas else ("orz", "dto")
-            self.stdout.write(f"Municipalidad {indice}/{total_organismos}: {slug_org}")
+
+            tipos = (
+                ("orz",)
+                if solo_ordenanzas
+                else ("orz", "dto")
+            )
+
+            self.stdout.write(
+                f"\nMunicipalidad {indice}/{total_organismos}: "
+                f"{slug_org}"
+            )
 
             for tipo in tipos:
-                url_indice = f"{BASE_RECURSO}/cl/{tipo}/{slug_org}/datos.json"
+
+                url_indice = (
+                    f"{BASE_RECURSO}/cl/{tipo}/"
+                    f"{slug_org}/datos.json"
+                )
+
                 try:
-                    data_indice = self._solicitar_json(url_indice)
-                    enlaces = extraer_items_norma(data_indice)
-                except (OSError, urllib.error.URLError, urllib.error.HTTPError, ValueError) as error:
-                    self.stderr.write(self.style.WARNING(
-                        f"No se pudo consultar {tipo.upper()} de {slug_org}: {error}"
-                    ))
-                    # Un 404 puede significar que ese municipio no tiene normas de ese tipo.
-                    if not isinstance(error, urllib.error.HTTPError) or error.code != 404:
+
+                    data_indice = self._solicitar_json(
+                        url_indice
+                    )
+
+                    enlaces = extraer_items_norma(
+                        data_indice
+                    )
+
+                except (
+                    OSError,
+                    urllib.error.URLError,
+                    urllib.error.HTTPError,
+                    ValueError,
+                ) as error:
+
+                    self.stderr.write(
+                        self.style.WARNING(
+                            f"No se pudo consultar {tipo.upper()} "
+                            f"de {slug_org}: {error}"
+                        )
+                    )
+
+                    # Un 404 puede significar que el municipio
+                    # no tiene documentos de ese tipo.
+                    if (
+                        not isinstance(
+                            error,
+                            urllib.error.HTTPError
+                        )
+                        or error.code != 404
+                    ):
+
                         errores_graves += 1
+
                     continue
 
-                self.stdout.write(f"  {tipo.upper()}: {len(enlaces)} referencias")
+                self.stdout.write(
+                    f"  {tipo.upper()}: {len(enlaces)} referencias"
+                )
+
                 for enlace in enlaces:
-                    tipo_uri, slug_uri = extraer_tipo_y_organismo(enlace)
-                    if tipo_uri not in {"orz", "dto"} or slug_uri != slug_org:
+
+                    tipo_uri, slug_uri = (
+                        extraer_tipo_y_organismo(enlace)
+                    )
+
+                    if tipo_uri not in {"orz", "dto"}:
                         continue
+
+                    if slug_uri != slug_org:
+                        continue
+
                     try:
+
                         datos = extraer_datos_norma(
-                            self._solicitar_json(f"{enlace}/datos.json"), enlace
+                            self._solicitar_json(
+                                f"{enlace}/datos.json"
+                            ),
+                            enlace,
                         )
-                    except (OSError, urllib.error.URLError, urllib.error.HTTPError, ValueError) as error:
+
+                    except (
+                        OSError,
+                        urllib.error.URLError,
+                        urllib.error.HTTPError,
+                        ValueError,
+                    ) as error:
+
                         detalle = str(error)
-                        self.stderr.write(self.style.WARNING(
-                            f"No se pudo leer una norma ({enlace}): {detalle}"
-                        ))
-                        self.errores_lectura.append({"url": enlace, "detalle": detalle})
+
+                        self.stderr.write(
+                            self.style.WARNING(
+                                f"No se pudo leer una norma "
+                                f"({enlace}): {detalle}"
+                            )
+                        )
+
+                        self.errores_lectura.append({
+                            "url": enlace,
+                            "detalle": detalle,
+                        })
+
                         errores_graves += 1
                         continue
 
                     if not datos:
                         continue
-                    if tipo_uri == "dto" and "ordenanza" not in normalizar(datos["nombre"]):
+
+                    # Cuando consultamos decretos, conservamos
+                    # únicamente los que corresponden a ordenanzas.
+                    if (
+                        tipo_uri == "dto"
+                        and "ordenanza" not in normalizar(
+                            datos["nombre"]
+                        )
+                    ):
+
                         continue
 
                     datos["organismo_slug"] = slug_org
-                    registros[datos["enlace_fuente"]] = datos
+
+                    # La clave es siempre la URI original de BCN,
+                    # nunca el enlace público de Ley Chile.
+                    registros[datos["enlace_bcn"]] = datos
+
                     if pausa:
                         time.sleep(pausa)
 
                 if pausa:
                     time.sleep(pausa)
 
-            self.stdout.write(f"  Documentos acumulados: {len(registros)}")
+            self.stdout.write(
+                f"  Documentos acumulados: {len(registros)}"
+            )
 
-        # Si todos los índices fallaron por razones distintas a 404, abortamos
-        # antes de tocar la base de datos para evitar una falsa importación vacía.
+        # Si todos los índices fallaron por razones distintas
+        # a 404, abortamos antes de modificar la base de datos.
         if errores_graves and not registros:
             return None
+
         return list(registros.values())
+
+    # --------------------------------------------------
+    # GUARDADO Y ACTUALIZACIÓN
+    # --------------------------------------------------
 
     @transaction.atomic
     def _guardar(self, registros, comunas):
+
         resumen = {
             "nuevas": 0,
             "actualizadas": 0,
@@ -384,95 +873,322 @@ class Command(BaseCommand):
             "por_comuna": {},
         }
 
+        # --------------------------------------------------
+        # INDEXAR REGISTROS EXISTENTES
+        # --------------------------------------------------
+
         por_enlace = {}
-        for norma in Norma.objects.all().prefetch_related("comunas"):
-            clave = normalizar_enlace(norma.enlace_fuente)
-            if clave:
-                por_enlace.setdefault(clave, norma)
+
+        normas_existentes = list(
+            Norma.objects.all().prefetch_related("comunas")
+        )
+
+        for norma in normas_existentes:
+
+            enlace_bcn = (
+                norma.enlace_bcn or ""
+            ).strip()
+
+            # Compatibilidad con registros antiguos:
+            # si la URI BCN estaba guardada en enlace_fuente,
+            # la trasladamos a enlace_bcn.
+            if (
+                not enlace_bcn
+                and "datos.bcn.cl/recurso/cl/" in (
+                    norma.enlace_fuente or ""
+                )
+            ):
+
+                tipo_antiguo, _ = extraer_tipo_y_organismo(
+                    norma.enlace_fuente
+                )
+
+                if tipo_antiguo in {"orz", "dto"}:
+
+                    enlace_bcn = normalizar_enlace(
+                        norma.enlace_fuente
+                    )
+
+                    norma.enlace_bcn = enlace_bcn
+
+                    norma.save(
+                        update_fields=["enlace_bcn"]
+                    )
+
+            if enlace_bcn:
+
+                clave = normalizar_enlace(
+                    enlace_bcn
+                )
+
+                # No eliminar registros duplicados existentes.
+                # Se utiliza el primero como registro principal.
+                if clave not in por_enlace:
+                    por_enlace[clave] = norma
+
+        # --------------------------------------------------
+        # PROCESAR DOCUMENTOS
+        # --------------------------------------------------
 
         total = len(registros)
+
         normas_procesadas_ids = set()
-        for indice, datos in enumerate(registros, start=1):
-            enlace = datos["enlace_fuente"]
-            nombre = datos["nombre"]
-            if not enlace or not nombre:
+
+        for indice, datos in enumerate(
+            registros,
+            start=1
+        ):
+
+            enlace_bcn = normalizar_enlace(
+                datos.get("enlace_bcn") or ""
+            )
+
+            enlace_publico = (
+                datos.get("enlace_fuente") or enlace_bcn
+            )
+
+            nombre = (
+                datos.get("nombre") or ""
+            ).strip()
+
+            if not enlace_bcn or not nombre:
+
                 resumen["omitidas"] += 1
                 continue
 
-            _, organismo_slug = extraer_tipo_y_organismo(enlace)
-            destino = comunas_del_organismo(organismo_slug, comunas)
-            if not destino:
-                destino = comunas_mencionadas_en_titulo(nombre, comunas)
+            tipo_uri, organismo_slug = (
+                extraer_tipo_y_organismo(enlace_bcn)
+            )
 
-            norma = por_enlace.get(enlace)
-            if norma is None:
+            if tipo_uri not in {"orz", "dto"}:
+
+                resumen["omitidas"] += 1
+                continue
+
+            # --------------------------------------------------
+            # IDENTIFICAR COMUNA
+            # --------------------------------------------------
+
+            destino = comunas_del_organismo(
+                organismo_slug,
+                comunas
+            )
+
+            # Si el organismo no coincide con ningún slug,
+            # se intenta identificar la comuna por el título.
+            if not destino:
+
+                destino = comunas_mencionadas_en_titulo(
+                    nombre,
+                    comunas
+                )
+
+            # --------------------------------------------------
+            # BUSCAR REGISTRO EXISTENTE
+            # --------------------------------------------------
+
+            norma = por_enlace.get(
+                enlace_bcn
+            )
+
+            creada = norma is None
+
+            # --------------------------------------------------
+            # CREAR NORMA
+            # --------------------------------------------------
+
+            if creada:
+
                 norma = Norma.objects.create(
                     nombre=nombre[:250],
                     tipo_norma=datos["tipo_norma"],
                     fecha_publicacion=datos["fecha_publicacion"],
-                    enlace_fuente=enlace,
+                    enlace_fuente=enlace_publico,
+                    enlace_bcn=enlace_bcn,
                     ambito="COMUNAL",
                 )
-                por_enlace[enlace] = norma
+
+                por_enlace[enlace_bcn] = norma
+
                 resumen["nuevas"] += 1
+
+            # --------------------------------------------------
+            # ACTUALIZAR NORMA EXISTENTE
+            # --------------------------------------------------
+
             else:
+
                 cambios = []
-                for campo, valor in (
+
+                valores_actualizados = (
                     ("nombre", nombre[:250]),
                     ("tipo_norma", datos["tipo_norma"]),
                     ("ambito", "COMUNAL"),
-                ):
+                    ("enlace_bcn", enlace_bcn),
+                    ("enlace_fuente", enlace_publico),
+                )
+
+                for campo, valor in valores_actualizados:
+
                     if getattr(norma, campo) != valor:
-                        setattr(norma, campo, valor)
+
+                        setattr(
+                            norma,
+                            campo,
+                            valor
+                        )
+
                         cambios.append(campo)
-                if datos["fecha_publicacion"] and norma.fecha_publicacion != datos["fecha_publicacion"]:
-                    norma.fecha_publicacion = datos["fecha_publicacion"]
-                    cambios.append("fecha_publicacion")
+
+                if (
+                    datos["fecha_publicacion"]
+                    and norma.fecha_publicacion
+                    != datos["fecha_publicacion"]
+                ):
+
+                    norma.fecha_publicacion = (
+                        datos["fecha_publicacion"]
+                    )
+
+                    cambios.append(
+                        "fecha_publicacion"
+                    )
+
                 if cambios:
-                    norma.save(update_fields=cambios)
+
+                    norma.save(
+                        update_fields=cambios
+                    )
+
                 resumen["actualizadas"] += 1
 
-            norma.comunas.set(destino)
-            normas_procesadas_ids.add(norma.pk)
+            # Actualizar índice.
+            por_enlace[enlace_bcn] = norma
+
+            normas_procesadas_ids.add(
+                norma.pk
+            )
+
+            # --------------------------------------------------
+            # ASOCIAR COMUNAS
+            # --------------------------------------------------
+
+            # Si se encontró una comuna, se actualiza la asociación.
+            # Si no se encontró, se conservan las asociaciones
+            # anteriores para evitar perder información.
             if destino:
+
+                norma.comunas.set(
+                    destino
+                )
+
                 resumen["asociaciones_comunales"] += 1
+
             else:
+
                 resumen["sin_comuna_registrada"] += 1
 
             if indice % 100 == 0 or indice == total:
-                self.stdout.write(f"Guardando {indice}/{total}...")
 
-        # Reasocia normas ya importadas si se agregó una comuna después.
+                self.stdout.write(
+                    f"Guardando {indice}/{total}..."
+                )
+
+        # --------------------------------------------------
+        # REASOCIAR ORDENANZAS EXISTENTES
+        # --------------------------------------------------
+
+        # Permite asociar ordenanzas antiguas cuando se agrega
+        # una nueva comuna a la base de datos.
+
         slugs_consultables = {
-            slug for comuna in comunas for slug in slugs_organismo_comuna(comuna)
+            slug
+            for comuna in comunas
+            for slug in slugs_organismo_comuna(comuna)
         }
-        for norma in Norma.objects.all().prefetch_related("comunas"):
-            tipo, organismo_slug = extraer_tipo_y_organismo(norma.enlace_fuente)
+
+        normas_existentes = Norma.objects.all().prefetch_related(
+            "comunas"
+        )
+
+        for norma in normas_existentes:
+
+            # La municipalidad se obtiene de la URI original BCN,
+            # no de enlace_fuente, que ahora contiene Ley Chile.
+            enlace_identificador = (
+                norma.enlace_bcn
+                or norma.enlace_fuente
+                or ""
+            )
+
+            tipo, organismo_slug = (
+                extraer_tipo_y_organismo(
+                    enlace_identificador
+                )
+            )
+
             if organismo_slug not in slugs_consultables:
                 continue
+
             if tipo == "orz":
+
                 es_importable = True
-            elif tipo == "dto" and "ordenanza" in normalizar(norma.nombre):
+
+            elif (
+                tipo == "dto"
+                and "ordenanza" in normalizar(norma.nombre)
+            ):
+
                 es_importable = True
+
             else:
+
                 es_importable = False
+
             if not es_importable:
                 continue
 
-            destino = comunas_del_organismo(organismo_slug, comunas)
-            if not destino:
-                destino = comunas_mencionadas_en_titulo(norma.nombre, comunas)
-            if norma.ambito != "COMUNAL":
-                norma.ambito = "COMUNAL"
-                norma.save(update_fields=["ambito"])
-            norma.comunas.set(destino)
+            destino = comunas_del_organismo(
+                organismo_slug,
+                comunas
+            )
 
-        # Cuenta normas únicas asociadas a cada comuna en esta ejecución.
+            if not destino:
+
+                destino = comunas_mencionadas_en_titulo(
+                    norma.nombre,
+                    comunas
+                )
+
+            if norma.ambito != "COMUNAL":
+
+                norma.ambito = "COMUNAL"
+
+                norma.save(
+                    update_fields=["ambito"]
+                )
+
+            # No borrar asociaciones anteriores cuando no se
+            # puede determinar una comuna de destino.
+            if destino:
+
+                norma.comunas.set(
+                    destino
+                )
+
+        # --------------------------------------------------
+        # CONTAR NORMAS POR COMUNA
+        # --------------------------------------------------
+
         for comuna in comunas:
+
             cantidad = Norma.objects.filter(
                 pk__in=normas_procesadas_ids,
                 comunas=comuna,
             ).distinct().count()
-            resumen["por_comuna"][comuna.nombre] = cantidad
+
+            resumen["por_comuna"][
+                comuna.nombre
+            ] = cantidad
 
         return resumen

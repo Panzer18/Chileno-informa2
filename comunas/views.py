@@ -1,3 +1,4 @@
+from normativa.consultas import normas_de
 from django.shortcuts import get_object_or_404, render
 from .models import Comuna
  
@@ -6,7 +7,7 @@ def detalle(request, slug):
     comuna = get_object_or_404(Comuna, slug=slug)
     resumen = {
         "monitoreos": comuna.monitoreos.count(),
-        "normas": comuna.normas.count(),
+        "normas": normas_de(comuna).count(),
         "noticias": comuna.noticias.count(),
     }
     return render(request, "comunas/detalle.html", {"comuna": comuna, "resumen": resumen})

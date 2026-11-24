@@ -10,19 +10,25 @@ from .models import Fuente
  
 OPCIONES_EN = ("todo", "comunas", "leyes", "noticias")
  
- 
 def inicio(request):
-    comunas = Comuna.objects.annotate(
+    return render(request, "core/inicio.html", {
+        "comunas": _con_resumen(Comuna.objects.all()),
+        "ultimas_noticias": Noticia.objects.order_by("-fecha")[:3],
+    })
+
+def _con_resumen(queryset):
+    """Comunas con la cantidad de monitoreos, normas y noticias (como en la portada)."""
+    comunas = list(queryset.annotate(
         n_monitoreos=Count("monitoreos", distinct=True),
         n_normas=Count("normas", distinct=True),
         n_noticias=Count("noticias", distinct=True),
-    )
-    return render(request, "core/inicio.html", {
-        "comunas": comunas,
-        "ultimas_noticias": Noticia.objects.order_by("-fecha")[:3],
-    })
- 
- 
+    ))
+    # Las normas nacionales sin comuna asociada aplican a todas las comunas.
+    n_nacionales = Norma.objects.filter(ambito="NACIONAL", comunas__isnull=True).count()
+    for comuna in comunas:
+        comuna.n_normas += n_nacionales
+    return comunas
+
 def que_es(request):
     return render(request, "core/que_es.html")
  
@@ -61,6 +67,13 @@ def buscar(request):
                 elif (difflib.SequenceMatcher(None, q_n, nombre).ratio() >= 0.5
                       or difflib.get_close_matches(q_n, palabras, n=1, cutoff=0.6)):
                     similares.append(c)
+                # Se vuelven a consultar con sus contadores para mostrarlas como tarjetas.
+        con_resumen = {
+            c.pk: c for c in _con_resumen(
+                Comuna.objects.filter(pk__in=[c.pk for c in coincidencias + similares]))
+        }
+        coincidencias = [con_resumen[c.pk] for c in coincidencias]
+        similares = [con_resumen[c.pk] for c in similares]
         encontradas = coincidencias + similares
  
         if en in ("todo", "leyes"):

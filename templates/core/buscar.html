@@ -32,12 +32,22 @@
  
   {% if coincidencias %}
   <h3>Comunas</h3>
-  <ul class="lista">
+  <div class="comunas comunas-resultados">
     {% for c in coincidencias %}
-    <li><a href="{% url 'comunas:detalle' c.slug %}">{{ c.nombre }}</a></li>
+    {% include "core/_tarjeta_comuna.html" %}
     {% endfor %}
-  </ul>
+  </div>
   {% endif %}
+ 
+  {% if similares %}
+  <h3>Comunas similares</h3>
+  <div class="comunas comunas-resultados">
+    {% for c in similares %}
+    {% include "core/_tarjeta_comuna.html" %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
  
   {% if similares %}
   <h3>Comunas similares</h3>

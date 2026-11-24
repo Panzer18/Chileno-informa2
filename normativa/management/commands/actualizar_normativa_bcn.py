@@ -133,9 +133,6 @@ def _detectar_tipo(titulo, tipo_raw=""):
 # DETECCIÓN DE COMUNAS Y REGIONES
 # --------------------------------------------------
 
-# Catálogo independiente de las comunas registradas en Django.
-# Así podemos reconocer una región aunque todavía no tengamos
-# comunas de esa región en nuestra base de datos.
 REGIONES_CHILE = [
     "Arica y Parinacota",
     "Tarapacá",
@@ -173,14 +170,10 @@ def _comunas_que_calzan(texto_norma, todas_las_comunas):
         if not nombre:
             continue
 
-        # Coincidencia del nombre completo.
         if re.search(rf"\b{re.escape(nombre)}\b", texto_n):
             coincidentes.append(comuna)
             continue
 
-        # Para nombres compuestos con guion, exigir que aparezcan
-        # todos sus componentes. Ej.: Quintero-Puchuncaví requiere
-        # encontrar tanto Quintero como Puchuncaví.
         partes = [
             parte.strip()
             for parte in nombre.split("-")
@@ -206,11 +199,7 @@ def _comunas_mencionadas_expresamente(titulo, todas_las_comunas):
 
 
 def _menciona_territorio_local(titulo):
-    """Detecta referencias a comunas, ciudades o localidades específicas.
-
-    No exige que el lugar exista en la tabla Comuna: esto permite clasificar
-    una norma como COMUNAL incluso antes de que el usuario registre esa comuna.
-    """
+    """Detecta referencias a comunas, ciudades o localidades específicas."""
 
     texto_n = _normalizar(titulo)
 
@@ -218,7 +207,7 @@ def _menciona_territorio_local(titulo):
         r"\bcomunas?\b",
         r"\blocalidades?\b",
         r"\bciudades?\b",
-        r"\bsectores?\s+aleda[nñ]os\b",
+        r"\bsectores\s+aleda[nñ]os\b",
         r"\bzona\s+circundante\b",
     )
 
@@ -231,6 +220,7 @@ def _es_nombramiento_de_autoridad(titulo):
     texto_n = _normalizar(titulo)
 
     es_accion = re.search(r"\b(nombra|designa)\b", texto_n)
+
     es_autoridad = re.search(
         r"\b(seremi|secretario[s]? regional(es)? ministerial(es)?)\b",
         texto_n,
@@ -243,12 +233,15 @@ def _obtener_nombre_region(region):
     """Normaliza nombres como 'Región de Valparaíso' a 'valparaiso'."""
 
     region_n = _normalizar(region).strip()
+
     region_n = re.sub(
         r"^region\s+(?:(?:de|del|la|los|las)\s+)?",
         "",
         region_n,
     )
+
     region_n = re.sub(r"^region\s+", "", region_n)
+
     return region_n.strip()
 
 
@@ -259,7 +252,9 @@ def _regiones_mencionadas(titulo, todas_las_comunas=None):
     regiones = set()
 
     for region in REGIONES_CHILE:
+
         region_n = _normalizar(region)
+
         patron = (
             rf"\bregion\s+"
             rf"(?:(?:de|del|la|los|las)\s+)?"
@@ -273,20 +268,17 @@ def _regiones_mencionadas(titulo, todas_las_comunas=None):
 
 
 def _detectar_ambito(titulo, todas_las_comunas):
-    """Clasifica como COMUNAL, REGIONAL o NACIONAL según el alcance territorial."""
+    """Clasifica como COMUNAL, REGIONAL o NACIONAL."""
 
-    # Las menciones a comunas, ciudades y localidades tienen prioridad sobre
-    # una eventual mención de región. Ej.: localidad de Huasco, ciudad de
-    # Coyhaique o comunas de Concón y Puchuncaví.
     if _menciona_territorio_local(titulo):
+
         comunas = _comunas_mencionadas_expresamente(
             titulo,
             todas_las_comunas,
         )
+
         return "COMUNAL", comunas, set()
 
-    # El nombramiento de un SEREMI puede mencionar una región, pero no es
-    # una norma de alcance regional: es un acto administrativo de personal.
     if _es_nombramiento_de_autoridad(titulo):
         return "NACIONAL", [], set()
 
@@ -335,15 +327,11 @@ def _extraer_items_json(data):
                         "enlace_fuente": str(uri).strip()
                     })
 
-    # Evitar referencias repetidas a distintas versiones
-    # del mismo recurso.
-
     unicos = {}
 
     for item in items:
 
         enlace = item["enlace_fuente"]
-
         clave = _normalizar_enlace(enlace)
 
         if clave not in unicos:
@@ -360,6 +348,7 @@ def _extraer_datos_norma(data, enlace):
     nombre = ""
     fecha = None
     tipo = ""
+    codigo_leychile = ""
 
     for sujeto, propiedades in data.items():
 
@@ -413,14 +402,33 @@ def _extraer_datos_norma(data, enlace):
                     if contenido:
                         tipo = str(contenido)
 
+                elif propiedad == "leychilecode":
+
+                    if contenido:
+                        codigo_leychile = str(contenido).strip()
+
     if not nombre:
         return None
+
+    enlace_bcn = _normalizar_enlace(enlace)
+
+    if codigo_leychile.isdigit():
+
+        enlace_publico = (
+            "https://www.bcn.cl/leychile/navegar"
+            f"?idNorma={codigo_leychile}"
+        )
+
+    else:
+        # No inventar códigos cuando BCN no entrega uno.
+        enlace_publico = enlace_bcn
 
     return {
         "nombre": nombre,
         "tipo_norma": _detectar_tipo(nombre, tipo),
         "fecha_publicacion": _parsear_fecha(fecha),
-        "enlace_fuente": enlace,
+        "enlace_fuente": enlace_publico,
+        "enlace_bcn": enlace_bcn,
     }
 
 
@@ -653,21 +661,26 @@ class Command(BaseCommand):
                 )
 
             if not cuerpo.strip():
+
                 self.stderr.write(
                     self.style.WARNING(
                         f"Respuesta vacía al consultar norma: {url}"
                     )
                 )
+
                 return None
 
             try:
                 data = json.loads(cuerpo)
+
             except json.JSONDecodeError as err:
+
                 self.stderr.write(
                     self.style.WARNING(
                         f"La respuesta no es JSON válido ({err}): {url}"
                     )
                 )
+
                 return None
 
             return _extraer_datos_norma(
@@ -724,44 +737,86 @@ class Command(BaseCommand):
         slugs_objetivo = {
             comuna.slug for comuna in comunas_objetivo
         }
+
         todos_los_slugs = {
             comuna.slug for comuna in todas_las_comunas
         }
-        ejecucion_completa = slugs_objetivo == todos_los_slugs
 
-        # Indexar las normas existentes por URL canónica.
-        # Esto evita duplicados por versiones distintas de BCN.
+        ejecucion_completa = (
+            slugs_objetivo == todos_los_slugs
+        )
+
+        # --------------------------------------------------
+        # INDEXAR NORMAS EXISTENTES
+        # --------------------------------------------------
+
         normas_existentes = list(
             Norma.objects.all().prefetch_related("comunas")
         )
+
         por_enlace = {}
+        por_enlace_publico = {}
 
         for existente in normas_existentes:
-            clave = _normalizar_enlace(existente.enlace_fuente)
 
-            if clave in por_enlace:
-                principal = por_enlace[clave]
-                asociaciones = list(existente.comunas.all())
+            enlace_bcn = existente.enlace_bcn or ""
 
-                if asociaciones:
-                    principal.comunas.add(*asociaciones)
+            # Compatibilidad con registros antiguos:
+            # anteriormente la URI BCN se guardaba en enlace_fuente.
+            if (
+                not enlace_bcn
+                and "datos.bcn.cl/recurso/" in existente.enlace_fuente
+            ):
 
-                existente.delete()
-            else:
+                enlace_bcn = _normalizar_enlace(
+                    existente.enlace_fuente
+                )
+
+                existente.enlace_bcn = enlace_bcn
+
+                existente.save(
+                    update_fields=["enlace_bcn"]
+                )
+
+            if enlace_bcn:
+
+                clave = _normalizar_enlace(enlace_bcn)
+
+                if clave in por_enlace:
+
+                    principal = por_enlace[clave]
+
+                    asociaciones = list(
+                        existente.comunas.all()
+                    )
+
+                    if asociaciones:
+                        principal.comunas.add(*asociaciones)
+
+                    existente.delete()
+                    continue
+
                 por_enlace[clave] = existente
 
-                if existente.enlace_fuente != clave:
-                    existente.enlace_fuente = clave
-                    existente.save(update_fields=["enlace_fuente"])
+            enlace_publico = (
+                existente.enlace_fuente or ""
+            ).strip()
+
+            if enlace_publico:
+                por_enlace_publico[enlace_publico] = existente
 
         total = len(items)
 
-        # Conserva los títulos completos recibidos desde BCN durante esta
-        # ejecución. El modelo puede limitar nombre a 250 caracteres, pero
-        # la clasificación territorial debe usar el texto íntegro.
+        # Conserva los títulos completos recibidos desde BCN durante
+        # esta ejecución, aunque el modelo limite nombre a 250 caracteres.
         titulos_completos_por_pk = {}
 
+        # --------------------------------------------------
+        # PROCESAR NORMAS
+        # --------------------------------------------------
+
         for indice, item in enumerate(items, start=1):
+
             self.stdout.write(
                 f"Procesando norma {indice}/{total}..."
             )
@@ -771,6 +826,7 @@ class Command(BaseCommand):
             ).strip()
 
             if not enlace_original:
+
                 resumen["omitidas"] += 1
                 continue
 
@@ -780,50 +836,93 @@ class Command(BaseCommand):
             )
 
             if not datos:
+
                 resumen["omitidas"] += 1
+
                 if indice < total:
                     time.sleep(max(0, pausa))
+
                 continue
 
-            nombre = (datos.get("nombre") or "").strip()
+            nombre = (
+                datos.get("nombre") or ""
+            ).strip()
 
             if not nombre:
+
                 resumen["omitidas"] += 1
                 continue
 
-            # Filtro de contenido ambiental.
-            if filtrar:
+            # --------------------------------------------------
+            # IDENTIFICAR LA NORMA ANTES DEL FILTRO
+            # --------------------------------------------------
+
+            enlace_bcn = _normalizar_enlace(
+                datos.get("enlace_bcn") or enlace_original
+            )
+
+            enlace_publico = (
+                datos.get("enlace_fuente") or enlace_bcn
+            )
+
+            # Buscar primero mediante la URI original de BCN.
+            norma = por_enlace.get(enlace_bcn)
+
+            # Recuperar registros antiguos si no tienen enlace_bcn.
+            if norma is None:
+                norma = por_enlace_publico.get(enlace_publico)
+
+            # --------------------------------------------------
+            # FILTRO DE CONTENIDO AMBIENTAL
+            # --------------------------------------------------
+
+            # Los registros existentes se actualizan aunque su título
+            # no contenga las palabras del filtro ambiental.
+            if filtrar and norma is None:
+
                 texto_n = _normalizar(nombre)
+
                 es_ambiental = any(
                     _normalizar(clave) in texto_n
                     for clave in CLAVES_AMBIENTALES
                 )
 
                 if not es_ambiental:
+
                     resumen["descartadas"] += 1
+
                     if indice < total:
                         time.sleep(max(0, pausa))
+
                     continue
 
             ambito, comunas_detectadas, regiones_detectadas = (
-                _detectar_ambito(nombre, todas_las_comunas)
+                _detectar_ambito(
+                    nombre,
+                    todas_las_comunas
+                )
             )
 
             if solo_locales and ambito != "COMUNAL":
+
                 resumen["descartadas"] += 1
+
                 if indice < total:
                     time.sleep(max(0, pausa))
+
                 continue
 
-            # Calcular las asociaciones que corresponden a las
-            # comunas que están registradas actualmente.
+            # Calcular asociaciones según el ámbito territorial.
             if ambito == "COMUNAL":
+
                 destino = [
                     comuna
                     for comuna in comunas_detectadas
                     if comuna.slug in slugs_objetivo
                 ]
+
             elif ambito == "REGIONAL":
+
                 destino = [
                     comuna
                     for comuna in todas_las_comunas
@@ -833,32 +932,48 @@ class Command(BaseCommand):
                         and comuna.slug in slugs_objetivo
                     )
                 ]
+
             else:
                 destino = []
 
-            enlace = _normalizar_enlace(enlace_original)
-            norma = por_enlace.get(enlace)
             creada = norma is None
 
+            # --------------------------------------------------
+            # CREAR NORMA
+            # --------------------------------------------------
+
             if creada:
+
                 norma = Norma.objects.create(
                     nombre=nombre[:250],
-                    tipo_norma=(datos.get("tipo_norma") or "Norma"),
+                    tipo_norma=(
+                        datos.get("tipo_norma") or "Norma"
+                    ),
                     ambito=ambito,
-                    fecha_publicacion=datos.get("fecha_publicacion"),
-                    enlace_fuente=enlace,
+                    fecha_publicacion=datos.get(
+                        "fecha_publicacion"
+                    ),
+                    enlace_fuente=enlace_publico,
+                    enlace_bcn=enlace_bcn,
                 )
-                por_enlace[enlace] = norma
+
+            # --------------------------------------------------
+            # ACTUALIZAR NORMA EXISTENTE
+            # --------------------------------------------------
+
             else:
+
                 campos_actualizados = []
 
-                # Mantener actualizado el título y la clasificación.
                 nombre_guardado = nombre[:250]
+
                 if norma.nombre != nombre_guardado:
+
                     norma.nombre = nombre_guardado
                     campos_actualizados.append("nombre")
 
                 if norma.ambito != ambito:
+
                     norma.ambito = ambito
                     campos_actualizados.append("ambito")
 
@@ -866,28 +981,68 @@ class Command(BaseCommand):
                     not norma.fecha_publicacion
                     and datos.get("fecha_publicacion")
                 ):
-                    norma.fecha_publicacion = datos["fecha_publicacion"]
-                    campos_actualizados.append("fecha_publicacion")
 
-                if (
+                    norma.fecha_publicacion = (
+                        datos["fecha_publicacion"]
+                    )
+
+                    campos_actualizados.append(
+                        "fecha_publicacion"
+                    )
+
+                if datos.get("tipo_norma") and (
                     not norma.tipo_norma
-                    and datos.get("tipo_norma")
+                    or norma.tipo_norma == "Norma"
                 ):
+
                     norma.tipo_norma = datos["tipo_norma"]
-                    campos_actualizados.append("tipo_norma")
+
+                    campos_actualizados.append(
+                        "tipo_norma"
+                    )
+
+                # Actualizar URI original de BCN.
+                if norma.enlace_bcn != enlace_bcn:
+
+                    norma.enlace_bcn = enlace_bcn
+
+                    campos_actualizados.append(
+                        "enlace_bcn"
+                    )
+
+                # Actualizar enlace público de Ley Chile.
+                if norma.enlace_fuente != enlace_publico:
+
+                    norma.enlace_fuente = enlace_publico
+
+                    campos_actualizados.append(
+                        "enlace_fuente"
+                    )
 
                 if campos_actualizados:
-                    norma.save(update_fields=campos_actualizados)
+
+                    norma.save(
+                        update_fields=campos_actualizados
+                    )
+
+            # Actualizar índices para las siguientes normas.
+            por_enlace[enlace_bcn] = norma
+            por_enlace_publico[enlace_publico] = norma
 
             titulos_completos_por_pk[norma.pk] = nombre
 
-            # Si se ejecuta para todas las comunas, reemplazamos
-            # todas las relaciones. Si se usa --comuna, modificamos
-            # solo esa comuna y preservamos las demás.
+            # --------------------------------------------------
+            # ASOCIACIÓN DE COMUNAS
+            # --------------------------------------------------
+
             if ejecucion_completa:
+
                 norma.comunas.set(destino)
+
             else:
+
                 norma.comunas.remove(*comunas_objetivo)
+
                 if destino:
                     norma.comunas.add(*destino)
 
@@ -898,8 +1053,10 @@ class Command(BaseCommand):
 
             if ambito == "COMUNAL":
                 resumen["locales"] += 1
+
             elif ambito == "REGIONAL":
                 resumen["regionales"] += 1
+
             else:
                 resumen["generales"] += 1
 
@@ -907,27 +1064,35 @@ class Command(BaseCommand):
                 time.sleep(max(0, pausa))
 
         # --------------------------------------------------
-        # SINCRONIZACIÓN FINAL DE TODAS LAS NORMAS GUARDADAS
+        # SINCRONIZACIÓN FINAL DE NORMAS AMBIENTALES
         # --------------------------------------------------
-        # Es lo que permite que, al agregar una comuna y volver a
-        # ejecutar el comando, se asocien también normas que ya
-        # estaban guardadas en la base de datos.
-        #
-        # No se crean comunas automáticamente: solo se relacionan
-        # las que el usuario haya agregado a la tabla Comuna.
 
-        for norma in Norma.objects.all():
-            titulo_para_clasificar = titulos_completos_por_pk.get(
-                norma.pk,
-                norma.nombre,
+        normas_ambientales = Norma.objects.filter(
+            enlace_bcn__contains="/ministerio-del-medio-ambiente/"
+        )
+
+        for norma in normas_ambientales:
+
+            titulo_para_clasificar = (
+                titulos_completos_por_pk.get(
+                    norma.pk,
+                    norma.nombre,
+                )
             )
+
             ambito, comunas_detectadas, regiones_detectadas = (
-                _detectar_ambito(titulo_para_clasificar, todas_las_comunas)
+                _detectar_ambito(
+                    titulo_para_clasificar,
+                    todas_las_comunas
+                )
             )
 
             if ambito == "COMUNAL":
+
                 destino = comunas_detectadas
+
             elif ambito == "REGIONAL":
+
                 destino = [
                     comuna
                     for comuna in todas_las_comunas
@@ -936,26 +1101,32 @@ class Command(BaseCommand):
                         in regiones_detectadas
                     )
                 ]
+
             else:
                 destino = []
 
             if ambito != norma.ambito:
+
                 norma.ambito = ambito
-                norma.save(update_fields=["ambito"])
+
+                norma.save(
+                    update_fields=["ambito"]
+                )
 
             if ejecucion_completa:
-                # Reemplaza todas las relaciones antiguas, incluidas
-                # las asociaciones erróneas del importador anterior.
+
                 norma.comunas.set(destino)
+
             else:
-                # Una ejecución limitada con --comuna no debe borrar
-                # las asociaciones de las otras comunas.
+
                 norma.comunas.remove(*comunas_objetivo)
+
                 asociaciones_objetivo = [
                     comuna
                     for comuna in destino
                     if comuna.slug in slugs_objetivo
                 ]
+
                 if asociaciones_objetivo:
                     norma.comunas.add(*asociaciones_objetivo)
 

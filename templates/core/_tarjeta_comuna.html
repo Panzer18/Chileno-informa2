@@ -1,0 +1,9 @@
+<a class="tarjeta-comuna tema-{{ c.slug }}" href="{% url 'comunas:detalle' c.slug %}">
+    <strong>{{ c.nombre }}</strong>
+    <span>Región de {{ c.region }}</span>
+    <span class="resumen">
+        {{ c.n_monitoreos }} fuente{{ c.n_monitoreos|pluralize }} de monitoreo ·
+        {{ c.n_normas }} norma{{ c.n_normas|pluralize }} ·
+        {{ c.n_noticias }} noticia{{ c.n_noticias|pluralize }}
+    </span>
+</a>

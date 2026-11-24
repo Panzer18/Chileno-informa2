@@ -21,10 +21,13 @@
     --acento: #2f7a45;
 }
 
-.tema-quintero-puchuncavi {
+.tema-quintero {
     --acento: #0d5c8c;
 }
-
+ 
+.tema-puchuncavi {
+    --acento: #a64b2a;
+}
 *, *::before, *::after {
     box-sizing: border-box;
 }
@@ -831,4 +834,16 @@ main:focus {
         word-break: break-all;
     }
 
+}
+
+/* ---------- Tarjetas de comuna en los resultados del buscador ---------- */
+.comunas-resultados {
+    margin-bottom: 1.5rem;
+}
+ 
+/* Con una sola comuna, la tarjeta no se estira a todo el ancho. */
+@media (min-width: 601px) {
+    .comunas-resultados {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 320px));
+    }
 }
