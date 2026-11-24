@@ -25,6 +25,7 @@
   <div class="rejilla">
     {% for n in pagina %}
     <article class="tarjeta">
+      {% if n.imagen %}<img class="miniatura" src="{{ n.imagen }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
       <h3><a href="{{ n.enlace }}" target="_blank" rel="noopener">{{ n.titulo }}</a></h3>
       <p class="meta">{{ n.fuente }}, {{ n.fecha|date:"j \d\e F \d\e Y" }}</p>
     </article>

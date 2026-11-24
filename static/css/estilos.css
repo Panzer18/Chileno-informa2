@@ -1,108 +1,834 @@
+/* ==========================================
+   1. VARIABLES Y CONFIGURACIÓN GENERAL
+   ========================================== */
+
 :root {
-  --tinta: #12303b; --papel: #f4f7f8; --blanco: #fff; --linea: #cfdbe0;
-  --acento: #0d5c8c;           /* Quintero-Puchuncaví */
-  --aviso: #fff4d6; --aviso-borde: #d9b44a;
-  --serif: Georgia, "Times New Roman", serif;
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --tinta: #12303b;
+    --papel: #f4f7f8;
+    --blanco: #ffffff;
+    --linea: #cfdbe0;
+
+    --acento: #0d5c8c;
+
+    --aviso: #fff4d6;
+    --aviso-borde: #d9b44a;
+
+    --serif: Georgia, "Times New Roman", serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
-.tema-petorca { --acento: #2f7a45; }
-.tema-quintero-puchuncavi { --acento: #0d5c8c; }
 
-* { box-sizing: border-box; }
-body { margin: 0; font-family: var(--sans); color: var(--tinta); background: var(--papel); line-height: 1.55; }
-h1, h2, h3 { font-family: var(--serif); line-height: 1.2; }
-h1 { font-size: clamp(1.7rem, 4vw, 2.5rem); margin: 0 0 .75rem; }
-h2 { font-size: 1.4rem; margin: 2rem 0 .75rem; }
-a { color: var(--acento); }
-a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--acento); outline-offset: 2px; }
-.oculto { position: absolute; left: -9999px; }
+.tema-petorca {
+    --acento: #2f7a45;
+}
 
-/* Cabecera y menú (desplegable solo con CSS) */
-.cabecera { background: var(--tinta); color: #fff; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: .75rem 1.5rem; gap: 1rem; }
-.marca { font-family: var(--serif); font-size: 1.3rem; color: #fff; text-decoration: none; }
-.menu, .submenu { list-style: none; margin: 0; padding: 0; }
-.menu { display: flex; gap: 1.25rem; flex-wrap: wrap; }
-.menu a { color: #fff; text-decoration: none; padding: .4rem 0; display: inline-block; }
-.menu a:hover { text-decoration: underline; }
-.desplegable { position: relative; }
-.submenu { display: none; position: absolute; right: 0; top: 100%; background: var(--blanco); min-width: 14rem; border: 1px solid var(--linea); z-index: 10; }
-.submenu a { color: var(--tinta); padding: .6rem 1rem; display: block; }
-.desplegable:hover .submenu, .desplegable:focus-within .submenu { display: block; }
+.tema-quintero-puchuncavi {
+    --acento: #0d5c8c;
+}
 
-.contenido { max-width: 62rem; margin: 0 auto; padding: 2rem 1.25rem 3rem; }
+*, *::before, *::after {
+    box-sizing: border-box;
+}
 
-/* Portada */
-.portada { background: var(--tinta); color: #fff; padding: 2.5rem 1.75rem; border-radius: 6px; }
-.portada p { max-width: 40rem; }
-.buscador { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: 1.25rem; }
-.buscador input { flex: 1 1 16rem; padding: .7rem .9rem; border: 0; border-radius: 4px; font-size: 1rem; }
+html {
+    scroll-behavior: smooth;
+}
 
-/* Botones y tarjetas */
-button, .boton { display: inline-block; background: var(--acento); color: #fff; border: 0; border-radius: 4px; padding: .6rem 1.1rem; font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
-.boton.secundario { background: transparent; color: var(--acento); border: 2px solid var(--acento); }
-.comunas, .opciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
-.tarjeta-comuna, .opcion { display: flex; flex-direction: column; gap: .25rem; padding: 2rem 1.5rem; background: var(--acento); color: #fff; text-decoration: none; border-radius: 6px; font-size: 1.15rem; }
-.tarjeta-comuna strong { font-family: var(--serif); font-size: 1.6rem; }
-.tarjeta-comuna:hover, .opcion:hover { filter: brightness(1.12); }
-.opcion { font-weight: 600; text-align: center; justify-content: center; }
-.rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 1rem; }
-.tarjeta { background: var(--blanco); border: 1px solid var(--linea); border-top: 4px solid var(--acento); padding: 1rem 1.1rem; border-radius: 4px; }
-.tarjeta h3 { margin: 0 0 .4rem; font-size: 1.1rem; }
-.meta { color: #4d6670; font-size: .9rem; margin: 0 0 .5rem; }
-.lista { list-style: none; padding: 0; }
-.lista li { padding: .8rem 0; border-bottom: 1px solid var(--linea); }
-.lista .meta { display: block; margin: 0; }
-.aviso { background: var(--aviso); border-left: 4px solid var(--aviso-borde); padding: .8rem 1rem; margin: 0; }
-.filtros { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; margin: 1rem 0; }
-.filtros select { padding: .5rem; font: inherit; }
+body {
+    margin: 0;
+    font-family: var(--sans);
+    color: var(--tinta);
+    background: var(--papel);
+    line-height: 1.55;
+    min-width: 320px;
+}
 
-.pie { background: var(--tinta); color: #dbe6ea; padding: 1.25rem 1.5rem; font-size: .9rem; }
-.pie p { margin: .2rem 0; }
+h1, h2, h3 {
+    font-family: var(--serif);
+    line-height: 1.2;
+}
 
-.filtros input[type="date"] { padding: .45rem; font: inherit; }
-.filtros .limpiar { margin-left: .25rem; }
-.revision { font-size: .85rem; color: #4d6670; margin: .6rem 0 0; }
-.revision.pendiente { font-style: italic; }
-.grupo-fuentes h2 { margin-top: 1.75rem; }
-.pagina-error { text-align: center; padding: 3rem 0; }
+h1 {
+    font-size: clamp(1.7rem, 3vw, 3rem);
+    margin: 0 0 .75rem;
+}
 
-/* ---------- Paginación ---------- */
-.paginacion { display: flex; gap: 1rem; align-items: center; justify-content: center; flex-wrap: wrap; margin: 1.5rem 0; }
-.paginacion a { font-weight: 600; }
- 
-/* ---------- Accesibilidad ---------- */
-.saltar { position: absolute; left: -9999px; top: 0; }
-.saltar:focus { left: 1rem; top: 1rem; z-index: 20; background: #fff; color: var(--tinta); padding: .6rem 1rem; border-radius: 4px; }
-main:focus { outline: none; }
-/* El contorno azul casi no se ve sobre fondo oscuro: allí se usa blanco. */
-.cabecera :focus-visible, .portada :focus-visible, .pie :focus-visible { outline-color: #fff; }
-.submenu a:focus-visible { outline-color: var(--acento); }
-.menu a[aria-current="page"] { text-decoration: underline; text-underline-offset: 4px; }
+h2 {
+    font-size: clamp(1.2rem, 2vw, 1.6rem);
+    margin: 2rem 0 .75rem;
+}
+
+a {
+    color: var(--acento);
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 3px solid var(--acento);
+    outline-offset: 2px;
+}
+
+.oculto {
+    position: absolute;
+    left: -9999px;
+}
+
+
+/* ==========================================
+   2. CABECERA Y MENÚ
+   ========================================== */
+
+.cabecera {
+    background: var(--tinta);
+    color: var(--blanco);
+
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: .85rem max(3%, calc((100% - 1600px) / 2));
+    gap: 1rem;
+}
+
+.marca {
+    font-family: var(--serif);
+    font-size: clamp(1.1rem, 1.5vw, 1.4rem);
+    color: var(--blanco);
+    text-decoration: none;
+}
+
+.menu,
+.submenu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.menu {
+    display: flex;
+    align-items: center;
+    gap: clamp(.8rem, 1.5vw, 1.5rem);
+    flex-wrap: wrap;
+}
+
+.menu a {
+    color: var(--blanco);
+    text-decoration: none;
+    padding: .4rem 0;
+    display: inline-block;
+}
+
+.menu a:hover {
+    text-decoration: underline;
+}
+
+.menu a[aria-current="page"] {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
+
+/* Desplegable original de comunas */
+
+.desplegable {
+    position: relative;
+}
+
+.submenu {
+    display: none;
+
+    position: absolute;
+    right: 0;
+    top: 100%;
+
+    background: var(--blanco);
+    min-width: 14rem;
+
+    border: 1px solid var(--linea);
+    border-radius: 5px;
+
+    z-index: 100;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, .12);
+}
+
+.desplegable:hover .submenu,
+.desplegable:focus-within .submenu {
+    display: block;
+}
+
+.submenu a {
+    color: var(--tinta);
+    padding: .65rem 1rem;
+    display: block;
+}
+
+.submenu a:hover {
+    background: var(--papel);
+}
+
+
+/* ==========================================
+   3. CONTENIDO PRINCIPAL
+   ========================================== */
+
+.contenido {
+    width: 94%;
+    max-width: 1600px;
+
+    margin-left: auto;
+    margin-right: auto;
+
+    padding: clamp(1.5rem, 3vw, 3rem) 0;
+}
+
+
+/* ==========================================
+   4. PORTADA
+   ========================================== */
+
+.portada {
+    width: 100%;
+
+    background: var(--tinta);
+    color: var(--blanco);
+
+    padding: clamp(1.5rem, 4vw, 4rem);
+
+    border-radius: 8px;
+    margin-bottom: clamp(2rem, 3vw, 3rem);
+}
+
+.portada h1 {
+    max-width: 850px;
+    font-size: clamp(1.8rem, 3.5vw, 3.2rem);
+}
+
+.portada p {
+    max-width: 700px;
+}
+
+.portada .ayuda {
+    font-size: .9rem;
+    color: #dbe6ea;
+    margin: .6rem 0 0;
+    max-width: 700px;
+}
+
+.portada-etiqueta {
+    color: #b7d7e3;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    margin-bottom: 1rem;
+}
+
+
+/* ==========================================
+   5. BUSCADOR
+   ========================================== */
+
+.buscador {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+
+    margin-top: 1.25rem;
+
+    width: 100%;
+    max-width: 900px;
+}
+
+.buscador input {
+    flex: 1 1 16rem;
+    min-width: 0;
+
+    padding: .8rem .9rem;
+
+    border: 0;
+    border-radius: 4px;
+
+    font-size: 1rem;
+    min-height: 48px;
+}
+
+
+/* ==========================================
+   6. BOTONES
+   ========================================== */
+
+button,
+.boton {
+    display: inline-block;
+
+    background: var(--acento);
+    color: var(--blanco);
+
+    border: 0;
+    border-radius: 4px;
+
+    padding: .6rem 1.1rem;
+
+    font: inherit;
+    font-weight: 600;
+
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.boton.secundario {
+    background: transparent;
+    color: var(--acento);
+    border: 2px solid var(--acento);
+}
+
+
+/* ==========================================
+   7. ENCABEZADOS DE SECCIONES
+   ========================================== */
+
+.seccion-comunas,
+.seccion-noticias {
+    margin-top: clamp(2rem, 3vw, 3rem);
+}
+
+.encabezado-seccion {
+    margin-bottom: 1.25rem;
+}
+
+.encabezado-seccion h2 {
+    margin: .3rem 0 0;
+}
+
+.seccion-etiqueta {
+    color: var(--acento);
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    margin: 0;
+}
+
+
+/* ==========================================
+   8. TARJETAS DE COMUNAS
+   ========================================== */
+
+.comunas,
+.opciones {
+    display: grid;
+
+    grid-template-columns:
+        repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+
+    gap: clamp(.75rem, 1.5vw, 1.5rem);
+}
+
+.tarjeta-comuna,
+.opcion {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+
+    padding: clamp(1rem, 2vw, 2rem);
+
+    background: var(--acento);
+    color: var(--blanco);
+
+    text-decoration: none;
+    border-radius: 8px;
+
+    font-size: 1.05rem;
+
+    transition: transform .2s, filter .2s;
+}
+
+.tarjeta-comuna {
+    min-height: 145px;
+}
+
+.tarjeta-comuna strong {
+    font-family: var(--serif);
+    font-size: clamp(1.2rem, 1.7vw, 1.6rem);
+}
+
+.tarjeta-comuna .resumen {
+    font-size: .9rem;
+    margin-top: .5rem;
+}
+
+.tarjeta-comuna:hover,
+.opcion:hover {
+    filter: brightness(1.12);
+    transform: translateY(-3px);
+}
+
+.opcion {
+    font-weight: 600;
+    text-align: center;
+    justify-content: center;
+}
+
+.opcion span {
+    font-weight: 400;
+    font-size: .95rem;
+}
+
+
+/* ==========================================
+   9. NOTICIAS Y TARJETAS
+   ========================================== */
+
+.rejilla {
+    display: grid;
+
+    grid-template-columns:
+        repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+
+    gap: clamp(.75rem, 1.5vw, 1.5rem);
+
+    align-items: stretch;
+}
+
+.tarjeta {
+    min-width: 0;
+    overflow: hidden;
+
+    display: flex;
+    flex-direction: column;
+
+    background: var(--blanco);
+
+    border: 1px solid var(--linea);
+    border-top: 4px solid var(--acento);
+
+    padding: clamp(.75rem, 1.5vw, 1.25rem);
+
+    border-radius: 6px;
+
+    transition: transform .2s, box-shadow .2s;
+}
+
+.tarjeta:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 16px rgba(18, 48, 59, .10);
+}
+
+.tarjeta h3 {
+    margin: 0 0 .5rem;
+    font-size: clamp(1rem, 1.2vw, 1.15rem);
+    line-height: 1.4;
+}
+
+.tarjeta .meta {
+    color: #4d6670;
+    font-size: .9rem;
+
+    margin-top: auto;
+    margin-bottom: 0;
+}
+
+.miniatura {
+    display: block;
+
+    width: 100%;
+    max-width: 100%;
+
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+
+    margin: 0 0 .75rem;
+
+    background: #dfe8eb;
+    border-radius: 4px;
+}
+
+
+/* ==========================================
+   10. LISTAS, AVISOS Y METADATOS
+   ========================================== */
+
+.meta {
+    color: #4d6670;
+    font-size: .9rem;
+    margin: 0 0 .5rem;
+}
+
+.lista {
+    list-style: none;
+    padding: 0;
+}
+
+.lista li {
+    padding: .8rem 0;
+    border-bottom: 1px solid var(--linea);
+}
+
+.lista .meta {
+    display: block;
+    margin: 0;
+}
+
+.aviso {
+    background: var(--aviso);
+    border-left: 4px solid var(--aviso-borde);
+    padding: .8rem 1rem;
+    margin: 0;
+}
+
+
+/* ==========================================
+   11. FILTROS
+   ========================================== */
+
+.filtros {
+    display: flex;
+    gap: .6rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin: 1rem 0;
+}
+
+.filtros select,
+.filtros input[type="date"],
+.filtros input[type="search"] {
+    padding: .5rem;
+    font: inherit;
+}
+
+.filtros input[type="search"] {
+    min-width: 14rem;
+}
+
+.filtros .limpiar {
+    margin-left: .25rem;
+}
+
+
+/* ==========================================
+   12. FUENTES Y REVISIÓN
+   ========================================== */
+
+.revision {
+    font-size: .85rem;
+    color: #4d6670;
+    margin: .6rem 0 0;
+}
+
+.revision.pendiente {
+    font-style: italic;
+}
+
+.grupo-fuentes h2 {
+    margin-top: 1.75rem;
+}
+
+
+/* ==========================================
+   13. FORMULARIO DE CONTACTO
+   ========================================== */
+
+.formulario {
+    max-width: 40rem;
+    margin-top: 1.25rem;
+}
+
+.campo {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    margin-bottom: 1rem;
+}
+
+.campo label {
+    font-weight: 600;
+}
+
+.campo input,
+.campo select,
+.campo textarea {
+    padding: .6rem;
+
+    font: inherit;
+
+    background: var(--blanco);
+
+    border: 1px solid #5b7580;
+    border-radius: 4px;
+}
+
+.errorlist {
+    list-style: none;
+    margin: 0;
+    padding: .4rem .6rem;
+
+    background: #fde8e8;
+    border-left: 4px solid #b3261e;
+
+    color: #7a1712;
+    font-size: .9rem;
+}
+
+.exito {
+    margin: 0 0 1rem;
+    padding: .8rem 1rem;
+
+    background: #e6f4ea;
+    border-left: 4px solid #2f7a45;
+}
+
+.trampa {
+    position: absolute;
+    left: -9999px;
+}
+
+
+/* ==========================================
+   14. PAGINACIÓN
+   ========================================== */
+
+.paginacion {
+    display: flex;
+    gap: 1rem;
+
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+
+    margin: 1.5rem 0;
+}
+
+.paginacion a {
+    font-weight: 600;
+}
+
+
+/* ==========================================
+   15. PIE DE PÁGINA
+   ========================================== */
+
+.pie {
+    background: var(--tinta);
+    color: #dbe6ea;
+
+    padding: clamp(1.25rem, 2vw, 2rem) 3%;
+
+    font-size: .9rem;
+}
+
+.pie-interior {
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.pie p {
+    margin: .2rem 0;
+}
+
+
+/* ==========================================
+   16. ACCESIBILIDAD
+   ========================================== */
+
+.saltar {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+}
+
+.saltar:focus {
+    left: 1rem;
+    top: 1rem;
+
+    z-index: 200;
+
+    background: var(--blanco);
+    color: var(--tinta);
+
+    padding: .6rem 1rem;
+    border-radius: 4px;
+}
+
+main:focus {
+    outline: none;
+}
+
+.cabecera :focus-visible,
+.portada :focus-visible,
+.pie :focus-visible {
+    outline-color: var(--blanco);
+}
+
+.submenu a:focus-visible {
+    outline-color: var(--acento);
+}
+
+
+/* ==========================================
+   17. ADAPTACIÓN A TABLETS
+   ========================================== */
+
+@media (max-width: 850px) {
+
+    .contenido {
+        width: 94%;
+    }
+
+    .cabecera {
+        padding-left: 3%;
+        padding-right: 3%;
+    }
+
+    .portada {
+        padding: 2rem;
+    }
+
+}
+
+
+/* ==========================================
+   18. ADAPTACIÓN A CELULARES
+   ========================================== */
+
+@media (max-width: 600px) {
+
+    .cabecera {
+        flex-direction: column;
+        align-items: flex-start;
+
+        padding: 1rem 3%;
+        gap: .6rem;
+    }
+
+    .menu {
+        width: 100%;
+        gap: .5rem 1rem;
+        font-size: .9rem;
+    }
+
+    .contenido {
+        width: 94%;
+        padding: 1.25rem 0 2.5rem;
+    }
+
+    .portada {
+        padding: 1.5rem;
+        border-radius: 7px;
+    }
+
+    .portada h1 {
+        font-size: 1.9rem;
+    }
+
+    .buscador {
+        flex-direction: column;
+    }
+
+    .buscador input,
+    .buscador button {
+        width: 100%;
+    }
+
+    .comunas,
+    .rejilla,
+    .opciones {
+        grid-template-columns: 1fr;
+    }
+
+    .tarjeta-comuna {
+        min-height: 125px;
+    }
+
+    .submenu {
+        left: 0;
+        right: auto;
+    }
+
+    .filtros {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .filtros input,
+    .filtros select {
+        width: 100%;
+    }
+
+    .pie {
+        padding: 1.5rem 3%;
+    }
+
+}
+
+
+/* ==========================================
+   19. REDUCCIÓN DE MOVIMIENTO
+   ========================================== */
+
 @media (prefers-reduced-motion: reduce) {
-  * { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
-}
- 
-/* ---------- Impresión ---------- */
-@media print {
-  .cabecera, .pie, .buscador, .filtros, .paginacion, .saltar, .boton.secundario { display: none; }
-  body { background: #fff; color: #000; }
-  .contenido { max-width: none; padding: 0; }
-  .portada, .tarjeta-comuna, .opcion, .boton { background: none; color: #000; padding: 0; }
-  .tarjeta { break-inside: avoid; border: 1px solid #999; }
-  a { color: #000; text-decoration: none; }
-  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: .85em; word-break: break-all; }
+
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition: none !important;
+        animation: none !important;
+    }
+
 }
 
-/* ---------- Feedback: buscador, filtros y resumen ---------- */
-.portada .ayuda { font-size: .9rem; color: #dbe6ea; margin: .6rem 0 0; max-width: 40rem; }
-.filtros input[type="search"] { padding: .45rem; font: inherit; min-width: 14rem; }
-.opcion span { font-weight: 400; font-size: .95rem; }
-.tarjeta-comuna .resumen { font-size: .95rem; margin-top: .5rem; }
-/* ---------- Formulario de contacto ---------- */
-.formulario { max-width: 40rem; margin-top: 1.25rem; }
-.campo { display: flex; flex-direction: column; gap: .3rem; margin-bottom: 1rem; }
-.campo label { font-weight: 600; }
-.campo input, .campo select, .campo textarea { padding: .6rem; font: inherit; background: #fff; border: 1px solid #5b7580; border-radius: 4px; }
-.errorlist { list-style: none; margin: 0; padding: .4rem .6rem; background: #fde8e8; border-left: 4px solid #b3261e; color: #7a1712; font-size: .9rem; }
-.exito { margin: 0 0 1rem; padding: .8rem 1rem; background: #e6f4ea; border-left: 4px solid #2f7a45; }
-.trampa { position: absolute; left: -9999px; }
+
+/* ==========================================
+   20. IMPRESIÓN
+   ========================================== */
+
+@media print {
+
+    .cabecera,
+    .pie,
+    .buscador,
+    .filtros,
+    .paginacion,
+    .saltar,
+    .boton.secundario {
+        display: none;
+    }
+
+    body {
+        background: #fff;
+        color: #000;
+    }
+
+    .contenido {
+        width: 100%;
+        max-width: none;
+        padding: 0;
+    }
+
+    .portada,
+    .tarjeta-comuna,
+    .opcion,
+    .boton {
+        background: none;
+        color: #000;
+        padding: 0;
+    }
+
+    .tarjeta {
+        break-inside: avoid;
+        border: 1px solid #999;
+    }
+
+    a {
+        color: #000;
+        text-decoration: none;
+    }
+
+    a[href^="http"]::after {
+        content: " (" attr(href) ")";
+        font-size: .85em;
+        word-break: break-all;
+    }
+
+}

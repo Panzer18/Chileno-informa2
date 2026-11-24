@@ -48,6 +48,10 @@ el aviso "No hay información de monitoreo ambiental disponible para esta comuna
 
 ```powershell
 python manage.py test
+python manage.py actualizar_noticias   (requiere internet)
+ 
+Las noticias se guardan en db.sqlite3, que NO está en el repositorio:
+quien clone el proyecto tiene que ejecutar el comando para verlas.
 ```
 
 ## Panel de administración (opcional)
